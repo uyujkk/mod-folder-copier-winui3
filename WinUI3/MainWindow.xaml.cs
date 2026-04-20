@@ -20,8 +20,14 @@ namespace ModFolderCopier.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private const string AppVersion = "v2.2";
+    private const string AppVersion = "v2.2.2";
     private const int MaxShortcutRows = 10;
+
+    private enum AppLanguage
+    {
+        ZhCn,
+        EnUs
+    }
 
     private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"];
     private static readonly SolidColorBrush CopiedBrush = new(ColorHelper.FromArgb(255, 36, 124, 76));
@@ -34,27 +40,170 @@ public sealed partial class MainWindow : Window
     private readonly List<TextBox> _shortcutKeyBoxes = [];
     private readonly List<TextBox> _shortcutActionBoxes = [];
     private readonly Dictionary<string, List<ShortcutBinding>> _modBindings = new(StringComparer.CurrentCultureIgnoreCase);
+    private readonly Dictionary<string, string> _modLinks = new(StringComparer.CurrentCultureIgnoreCase);
 
     private bool _isDarkTheme;
     private bool _isLoadingBindings;
+    private bool _isLoadingModLink;
     private int _visibleShortcutRows = 1;
     private string? _currentSecondLevelPath;
+    private AppLanguage _currentLanguage = AppLanguage.ZhCn;
 
     public MainWindow()
     {
         InitializeComponent();
-        Title = "Mod 文件复制器 " + AppVersion;
         ExtendsContentIntoTitleBar = false;
         FirstLevelListView.ItemsSource = _firstLevelItems;
         SecondLevelListView.ItemsSource = _secondLevelItems;
         BuildShortcutRows();
-        ApplyTheme(false);
         Activated += (_, _) => RootGrid.Focus(FocusState.Programmatic);
         LoadConfig();
+        ApplyTheme(_isDarkTheme);
+        ApplyLanguage();
+
         if (Directory.Exists(SourceTextBox.Text))
         {
             _ = RefreshListsAsync();
         }
+        else
+        {
+            SetDefaultStatus();
+        }
+    }
+
+    private string L(string zh, string en) => _currentLanguage == AppLanguage.EnUs ? en : zh;
+
+    private string StateNotSelectedText => L("未选择", "Not selected");
+
+    private string StateNotConfiguredText => L("未设置", "Not configured");
+
+    private string StateCopiedText => L("已复制", "Copied");
+
+    private string StateMissingText => L("未复制", "Not copied");
+
+    private void ApplyLanguage()
+    {
+        Title = L($"Mod 文件复制器 {AppVersion}", $"Mod Folder Copier {AppVersion}");
+
+        HeaderTitleTextBlock.Text = L("Mod 文件复制器", "Mod Folder Copier");
+        HeaderFrameworkBadgeTextBlock.Text = "WinUI 3";
+        HeaderVersionBadgeTextBlock.Text = AppVersion;
+        HeaderSubtitleTextBlock.Text = L(
+            "管理两层 Mod 文件夹、预览图、ZIP 导入、快捷键说明和启动器入口。",
+            "Manage two-level mod folders, preview images, ZIP imports, per-mod shortcut notes, and launcher access.");
+        HeaderCaptionTextBlock.Text = L(
+            "左侧先选第一层分类，再选第二层 Mod。双击第二层可直接复制或移除。",
+            "Select a first-level category first, then a second-level mod. Double-click a mod to copy or remove it.");
+
+        LanguageToggleButton.Content = _currentLanguage == AppLanguage.ZhCn ? "English" : "中文";
+        ThemeToggleButton.Content = _isDarkTheme ? L("切换浅色", "Light theme") : L("切换深色", "Dark theme");
+
+        PathSectionTitleTextBlock.Text = L("路径与启动器", "Paths and Launcher");
+        PathSectionSubtitleTextBlock.Text = L(
+            "把主文件夹、副文件夹和启动器统一放在这里，常用操作会直接使用这些路径。",
+            "Keep the source folder, target folder, and launcher together here for quick access.");
+        SourceLabelTextBlock.Text = L("主文件夹", "Source");
+        TargetLabelTextBlock.Text = L("副文件夹", "Target");
+        LauncherLabelTextBlock.Text = L("启动器", "Launcher");
+        PickSourceButton.Content = L("选择", "Browse");
+        PickTargetButton.Content = L("选择", "Browse");
+        PickLauncherButton.Content = L("选择程序", "Browse EXE");
+        OpenSourceButton.Content = L("打开主文件夹", "Open Source");
+        OpenTargetButton.Content = L("打开副文件夹", "Open Target");
+        OpenLauncherButton.Content = L("打开启动器位置", "Open Launcher Folder");
+        LauncherTextBox.PlaceholderText = L("选择 XXMI Launcher.exe 或其他启动器", "Select XXMI Launcher.exe or another launcher");
+        PathHintTextBlock.Text = L(
+            "支持刷新目录、导入 ZIP、复制当前第二层文件夹，以及直接运行外部启动器。",
+            "Refresh folders, import ZIP files, copy the selected second-level folder, or run the external launcher.");
+        RefreshButton.Content = L("刷新目录", "Refresh");
+        ImportZipButton.Content = L("导入 ZIP 到当前第二层", "Import ZIP");
+        RunLauncherButton.Content = L("运行启动器", "Run Launcher");
+        ToggleCopyButton.Content = L("复制当前第二层文件夹", "Copy Selected Mod");
+
+        FirstCountLabelTextBlock.Text = L("第一层目录数", "First-level folders");
+        FirstCountHintTextBlock.Text = L("当前主文件夹下的分类数量", "Number of categories in the source folder");
+        SecondCountLabelTextBlock.Text = L("第二层目录数", "Second-level folders");
+        SecondCountHintTextBlock.Text = L("当前扫描到的 Mod 总数", "Total mod folders found in the current source");
+        CurrentStateLabelTextBlock.Text = L("当前复制状态", "Copy status");
+        CurrentStateHintTextBlock.Text = L("根据副文件夹中的同名目录判断", "Detected from folders with the same name in the target");
+        CurrentFolderLabelTextBlock.Text = L("当前第二层文件夹", "Current second-level folder");
+        CurrentFolderHintTextBlock.Text = L("这里会显示当前选中的 Mod 名称", "Shows the currently selected mod name");
+
+        FirstLevelSectionTitleTextBlock.Text = L("第一层文件夹", "First-level folders");
+        FirstLevelSectionSubtitleTextBlock.Text = L("先选择分类目录", "Choose a category folder first");
+        SecondLevelSectionTitleTextBlock.Text = L("第二层文件夹", "Second-level folders");
+        SecondLevelSectionSubtitleTextBlock.Text = L("再选择具体 Mod", "Then choose a specific mod");
+
+        ShortcutSectionTitleTextBlock.Text = L("快捷键与功能", "Shortcut Notes");
+        ShortcutSectionSubtitleTextBlock.Text = L("当前选中 Mod 的快捷键说明", "Shortcut notes for the selected mod");
+        AddShortcutRowButton.Content = L("新增一行", "Add Row");
+        ShortcutHintTextBlock.Text = L(
+            "当前窗口聚焦时，按下填写的快捷键会定位并执行对应 Mod。",
+            "When this window is focused, the filled shortcut will locate and run the corresponding mod.");
+
+        PreviewSectionTitleTextBlock.Text = L("默认图像预览", "Image Preview");
+        PreviewSectionSubtitleTextBlock.Text = L(
+            "优先 preview / cover / thumbnail / image，也支持把图片拖到这里。",
+            "Prefers preview / cover / thumbnail / image, and also supports dragging an image here.");
+        ModLinkSectionTitleTextBlock.Text = L("Mod 链接", "Mod Link");
+        ModLinkSectionSubtitleTextBlock.Text = L(
+            "为当前 Mod 绑定一个网页链接，可直接快速访问。",
+            "Bind a web link to the current mod for quick access.");
+        ModLinkTextBox.PlaceholderText = L("粘贴当前 Mod 对应的网址", "Paste the web link for the current mod");
+        PreviewFooterTextBlock.Text = L(
+            "预览区会显示当前第二层文件夹的图片，下方链接可一键用默认浏览器打开。",
+            "The preview shows the current second-level folder image, and the link below opens in the default browser.");
+        OpenModLinkButton.Content = L("快速访问", "Open Link");
+
+        ProgressTextBlock.Text = string.IsNullOrWhiteSpace(ProgressTextBlock.Text)
+            ? L("当前无复制任务", "No active copy task")
+            : ProgressTextBlock.Text;
+
+        AuthorTextBlock.Text = L("作者：uyujkk", "Author: uyujkk");
+
+        ApplyShortcutPlaceholders();
+        UpdateShortcutRowVisibility();
+        UpdateLinkButtonState();
+        RefreshLocalizedStates();
+
+        if (FirstLevelListView.SelectedItem is FirstLevelFolderItem firstItem)
+        {
+            string? selectedPath = _currentSecondLevelPath;
+            PopulateSecondLevelList(firstItem, preserveStatus: true);
+            SelectSecondLevelByPath(selectedPath);
+        }
+        else if (GetSelectedSecondLevelItem() is SecondLevelFolderItem secondItem)
+        {
+            ShowSecondLevelDetails(secondItem, preserveStatus: true);
+        }
+        else
+        {
+            CurrentFolderTextBlock.Text = StateNotSelectedText;
+            CurrentStateTextBlock.Text = StateNotSelectedText;
+            SetStateColor(CurrentStateTextBlock.Text);
+            ClearPreview();
+            SetDefaultStatus();
+        }
+    }
+
+    private void ApplyShortcutPlaceholders()
+    {
+        foreach (TextBox box in _shortcutKeyBoxes)
+        {
+            box.PlaceholderText = L("快捷键", "Shortcut");
+        }
+
+        foreach (TextBox box in _shortcutActionBoxes)
+        {
+            box.PlaceholderText = L("功能", "Action");
+        }
+    }
+
+    private void SetDefaultStatus()
+    {
+        StatusTextBlock.Text = L(
+            $"请选择主文件夹和副文件夹。当前版本：{AppVersion}",
+            $"Choose a source and target folder. Current version: {AppVersion}");
     }
 
     private void BuildShortcutRows()
@@ -72,7 +221,6 @@ public sealed partial class MainWindow : Window
             var keyBorder = CreateInsetBorder();
             var keyBox = new TextBox
             {
-                PlaceholderText = "快捷键",
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(10, 8, 10, 8)
             };
@@ -82,7 +230,6 @@ public sealed partial class MainWindow : Window
             var actionBorder = CreateInsetBorder();
             var actionBox = new TextBox
             {
-                PlaceholderText = "功能",
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(10, 8, 10, 8)
             };
@@ -99,6 +246,7 @@ public sealed partial class MainWindow : Window
             _shortcutActionBoxes.Add(actionBox);
         }
 
+        ApplyShortcutPlaceholders();
         UpdateShortcutRowVisibility();
     }
 
@@ -145,18 +293,20 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnOpenSourceClicked(object sender, RoutedEventArgs e) => OpenDirectory(SourceTextBox.Text, "主文件夹");
+    private void OnOpenSourceClicked(object sender, RoutedEventArgs e) => OpenDirectory(SourceTextBox.Text, L("主文件夹", "source folder"));
 
-    private void OnOpenTargetClicked(object sender, RoutedEventArgs e) => OpenDirectory(TargetTextBox.Text, "副文件夹");
+    private void OnOpenTargetClicked(object sender, RoutedEventArgs e) => OpenDirectory(TargetTextBox.Text, L("副文件夹", "target folder"));
 
-    private void OnOpenLauncherClicked(object sender, RoutedEventArgs e) => OpenFileLocation(LauncherTextBox.Text, "启动器");
+    private void OnOpenLauncherClicked(object sender, RoutedEventArgs e) => OpenFileLocation(LauncherTextBox.Text, L("启动器", "launcher"));
 
     private async void OnRunLauncherClicked(object sender, RoutedEventArgs e)
     {
         string launcherPath = (LauncherTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(launcherPath) || !File.Exists(launcherPath))
         {
-            await ShowMessageAsync("请先设置有效的 XXMI 启动器路径。", "未设置启动器");
+            await ShowMessageAsync(
+                L("请先设置有效的 XXMI 启动器路径。", "Set a valid launcher path first."),
+                L("未设置启动器", "Launcher not set"));
             return;
         }
 
@@ -168,12 +318,14 @@ public sealed partial class MainWindow : Window
                 WorkingDirectory = Path.GetDirectoryName(launcherPath) ?? AppContext.BaseDirectory,
                 UseShellExecute = true
             });
-            StatusTextBlock.Text = "已启动 XXMI 启动器。";
+            StatusTextBlock.Text = L("已启动外部启动器。", "External launcher started.");
             SaveConfig();
         }
         catch (Exception ex)
         {
-            await ShowMessageAsync("运行启动器失败：" + ex.Message, "启动失败");
+            await ShowMessageAsync(
+                L("运行启动器失败：", "Failed to run launcher: ") + ex.Message,
+                L("启动失败", "Launch failed"));
         }
     }
 
@@ -184,7 +336,9 @@ public sealed partial class MainWindow : Window
         var item = GetSelectedSecondLevelItem();
         if (item is null)
         {
-            await ShowMessageAsync("请先选择一个第二层 Mod。", "未选择 Mod");
+            await ShowMessageAsync(
+                L("请先选择一个第二层 Mod。", "Select a second-level mod first."),
+                L("未选择 Mod", "No mod selected"));
             return;
         }
 
@@ -204,7 +358,9 @@ public sealed partial class MainWindow : Window
         var item = GetSelectedSecondLevelItem();
         if (item is null)
         {
-            await ShowMessageAsync("请先选择一个第二层 Mod。", "未选择 Mod");
+            await ShowMessageAsync(
+                L("请先选择一个第二层 Mod。", "Select a second-level mod first."),
+                L("未选择 Mod", "No mod selected"));
             return;
         }
 
@@ -222,6 +378,7 @@ public sealed partial class MainWindow : Window
         _currentSecondLevelPath = item?.Path;
         ShowSecondLevelDetails(item);
         LoadBindingsForCurrentMod(item);
+        LoadLinkForCurrentMod(item);
     }
 
     private async void OnSecondLevelDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -237,13 +394,15 @@ public sealed partial class MainWindow : Window
     {
         if (string.IsNullOrEmpty(_currentSecondLevelPath))
         {
-            await ShowMessageAsync("请先选择一个第二层 Mod。", "未选择 Mod");
+            await ShowMessageAsync(
+                L("请先选择一个第二层 Mod。", "Select a second-level mod first."),
+                L("未选择 Mod", "No mod selected"));
             return;
         }
 
         if (_visibleShortcutRows >= MaxShortcutRows)
         {
-            StatusTextBlock.Text = "快捷键行数已达到上限 10 行。";
+            StatusTextBlock.Text = L("快捷键行数已达到上限 10 行。", "Shortcut rows have reached the 10-row limit.");
             return;
         }
 
@@ -261,9 +420,54 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnModLinkTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_isLoadingModLink)
+        {
+            SaveCurrentModLink();
+        }
+    }
+
+    private async void OnOpenModLinkClicked(object sender, RoutedEventArgs e)
+    {
+        string currentLink = (ModLinkTextBox.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(currentLink))
+        {
+            await ShowMessageAsync(
+                L("请先为当前 Mod 填写一个可访问的网址。", "Enter a valid web link for the current mod first."),
+                L("未设置链接", "Link not set"));
+            return;
+        }
+
+        try
+        {
+            string normalized = NormalizeLink(currentLink);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = normalized,
+                UseShellExecute = true
+            });
+            StatusTextBlock.Text = L("已在默认浏览器中打开 Mod 链接。", "Opened the mod link in the default browser.");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(
+                L("打开链接失败：", "Failed to open link: ") + ex.Message,
+                L("打开失败", "Open failed"));
+        }
+    }
+
     private void OnThemeToggleClicked(object sender, RoutedEventArgs e)
     {
         ApplyTheme(!_isDarkTheme);
+        SaveConfig();
+    }
+
+    private void OnLanguageToggleClicked(object sender, RoutedEventArgs e)
+    {
+        _currentLanguage = _currentLanguage == AppLanguage.ZhCn ? AppLanguage.EnUs : AppLanguage.ZhCn;
+        ApplyLanguage();
+        SaveConfig();
     }
 
     private void OnPreviewDragOver(object sender, DragEventArgs e)
@@ -286,24 +490,27 @@ public sealed partial class MainWindow : Window
         var item = GetSelectedSecondLevelItem();
         if (item is null)
         {
-            await ShowMessageAsync("请先选择一个第二层 Mod，再把图片拖到预览区。", "未选择 Mod");
+            await ShowMessageAsync(
+                L("请先选择一个第二层 Mod，再把图片拖到预览区。", "Select a second-level mod before dropping an image."),
+                L("未选择 Mod", "No mod selected"));
             return;
         }
 
         if (!e.DataView.Contains(StandardDataFormats.StorageItems))
         {
-            await ShowMessageAsync("只支持从资源管理器拖入图片文件。", "不支持的拖放内容");
+            await ShowMessageAsync(
+                L("只支持从资源管理器拖入图片文件。", "Only image files dragged from File Explorer are supported."),
+                L("不支持的拖放内容", "Unsupported drop content"));
             return;
         }
 
         IReadOnlyList<IStorageItem> droppedItems = await e.DataView.GetStorageItemsAsync();
-        StorageFile? imageFile = droppedItems
-            .OfType<StorageFile>()
-            .FirstOrDefault(file => IsImageFile(file.Path));
-
+        StorageFile? imageFile = droppedItems.OfType<StorageFile>().FirstOrDefault(file => IsImageFile(file.Path));
         if (imageFile is null)
         {
-            await ShowMessageAsync("没有检测到可用的图片文件。", "未找到图片");
+            await ShowMessageAsync(
+                L("没有检测到可用的图片文件。", "No supported image file was detected."),
+                L("未找到图片", "No image found"));
             return;
         }
 
@@ -346,29 +553,29 @@ public sealed partial class MainWindow : Window
     {
         _isDarkTheme = dark;
         RootGrid.RequestedTheme = dark ? ElementTheme.Dark : ElementTheme.Light;
-        ThemeToggleButton.Content = dark ? "切换浅色" : "切换深色";
+        ThemeToggleButton.Content = dark ? L("切换浅色", "Light theme") : L("切换深色", "Dark theme");
         SetStateColor(CurrentStateTextBlock.Text);
     }
 
     private async Task<string?> PickFolderAsync()
     {
         var picker = new FolderPicker();
-        picker.FileTypeFilter.Add("*");
         picker.SuggestedStartLocation = PickerLocationId.Desktop;
+        picker.FileTypeFilter.Add("*");
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         StorageFolder? folder = await picker.PickSingleFolderAsync();
         return folder?.Path;
     }
 
-    private async Task<string?> PickFileAsync(IReadOnlyList<string> fileTypes)
+    private async Task<string?> PickFileAsync(string[] extensions)
     {
         var picker = new FileOpenPicker();
-        foreach (string fileType in fileTypes)
+        picker.SuggestedStartLocation = PickerLocationId.Desktop;
+        foreach (string extension in extensions)
         {
-            picker.FileTypeFilter.Add(fileType);
+            picker.FileTypeFilter.Add(extension);
         }
 
-        picker.SuggestedStartLocation = PickerLocationId.Desktop;
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         StorageFile? file = await picker.PickSingleFileAsync();
         return file?.Path;
@@ -380,7 +587,9 @@ public sealed partial class MainWindow : Window
         {
             if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
             {
-                _ = ShowMessageAsync(title + "不存在，请重新选择。", "路径无效");
+                _ = ShowMessageAsync(
+                    title + L("不存在，请重新选择。", " does not exist. Please choose it again."),
+                    L("路径无效", "Invalid path"));
                 return;
             }
 
@@ -392,7 +601,9 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _ = ShowMessageAsync("打开目录失败：" + ex.Message, "操作失败");
+            _ = ShowMessageAsync(
+                L("打开目录失败：", "Failed to open folder: ") + ex.Message,
+                L("操作失败", "Operation failed"));
         }
     }
 
@@ -402,7 +613,9 @@ public sealed partial class MainWindow : Window
         {
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
-                _ = ShowMessageAsync(title + "不存在，请重新选择。", "路径无效");
+                _ = ShowMessageAsync(
+                    title + L("不存在，请重新选择。", " does not exist. Please choose it again."),
+                    L("路径无效", "Invalid path"));
                 return;
             }
 
@@ -415,13 +628,16 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _ = ShowMessageAsync("打开启动器位置失败：" + ex.Message, "操作失败");
+            _ = ShowMessageAsync(
+                L("打开启动器位置失败：", "Failed to open file location: ") + ex.Message,
+                L("操作失败", "Operation failed"));
         }
     }
 
     private void LoadConfig()
     {
         _modBindings.Clear();
+        _modLinks.Clear();
 
         if (!File.Exists(_configPath))
         {
@@ -447,7 +663,14 @@ public sealed partial class MainWindow : Window
                 }
                 else if (line.StartsWith("theme=", StringComparison.Ordinal))
                 {
-                    ApplyTheme(string.Equals(DecodeValue(line["theme=".Length..]), "dark", StringComparison.OrdinalIgnoreCase));
+                    _isDarkTheme = string.Equals(DecodeValue(line["theme=".Length..]), "dark", StringComparison.OrdinalIgnoreCase);
+                }
+                else if (line.StartsWith("language=", StringComparison.Ordinal))
+                {
+                    string language = DecodeValue(line["language=".Length..]);
+                    _currentLanguage = string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
+                        ? AppLanguage.EnUs
+                        : AppLanguage.ZhCn;
                 }
                 else if (line.StartsWith("binding=", StringComparison.Ordinal))
                 {
@@ -464,14 +687,23 @@ public sealed partial class MainWindow : Window
                         bindings.Add(new ShortcutBinding(DecodeValue(parts[1]), DecodeValue(parts[2])));
                     }
                 }
+                else if (line.StartsWith("mod_link=", StringComparison.Ordinal))
+                {
+                    string[] parts = line["mod_link=".Length..].Split('\t');
+                    if (parts.Length == 2)
+                    {
+                        _modLinks[DecodeValue(parts[0])] = DecodeValue(parts[1]);
+                    }
+                }
             }
         }
         catch
         {
-            StatusTextBlock.Text = "配置读取失败，已忽略旧配置。";
+            StatusTextBlock.Text = L("配置读取失败，已忽略旧配置。", "Failed to load config. Older config values were ignored.");
         }
 
         LoadDefaultShortcutTemplate();
+        LoadLinkForCurrentMod(null);
     }
 
     private void SaveConfig()
@@ -483,7 +715,8 @@ public sealed partial class MainWindow : Window
                 "source_dir=" + EncodeValue(SourceTextBox.Text ?? string.Empty),
                 "target_dir=" + EncodeValue(TargetTextBox.Text ?? string.Empty),
                 "launcher_path=" + EncodeValue(LauncherTextBox.Text ?? string.Empty),
-                "theme=" + EncodeValue(_isDarkTheme ? "dark" : "light")
+                "theme=" + EncodeValue(_isDarkTheme ? "dark" : "light"),
+                "language=" + EncodeValue(_currentLanguage == AppLanguage.EnUs ? "en" : "zh")
             };
 
             foreach ((string path, List<ShortcutBinding> bindings) in _modBindings.OrderBy(item => item.Key, StringComparer.CurrentCultureIgnoreCase))
@@ -499,11 +732,19 @@ public sealed partial class MainWindow : Window
                 }
             }
 
+            foreach ((string path, string link) in _modLinks.OrderBy(item => item.Key, StringComparer.CurrentCultureIgnoreCase))
+            {
+                if (!string.IsNullOrWhiteSpace(link))
+                {
+                    lines.Add("mod_link=" + EncodeValue(path) + "\t" + EncodeValue(link));
+                }
+            }
+
             File.WriteAllLines(_configPath, lines);
         }
         catch
         {
-            StatusTextBlock.Text = "配置保存失败，但不影响当前使用。";
+            StatusTextBlock.Text = L("配置保存失败，但不影响当前使用。", "Failed to save config, but the app can continue.");
         }
     }
 
@@ -528,24 +769,25 @@ public sealed partial class MainWindow : Window
         _currentSecondLevelPath = null;
         FirstCountTextBlock.Text = "0";
         SecondCountTextBlock.Text = "0";
-        CurrentFolderTextBlock.Text = "未选择";
-        CurrentStateTextBlock.Text = "未选择";
+        CurrentFolderTextBlock.Text = StateNotSelectedText;
+        CurrentStateTextBlock.Text = StateNotSelectedText;
         CurrentStateTextBlock.Foreground = NeutralBrush;
         LoadDefaultShortcutTemplate();
+        LoadLinkForCurrentMod(null);
         ClearPreview();
-        UpdateProgress(0, "当前无复制任务");
+        UpdateProgress(0, L("当前无复制任务", "No active copy task"));
 
         string sourceDir = (SourceTextBox.Text ?? string.Empty).Trim();
         string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
         {
-            StatusTextBlock.Text = "请先选择有效的主文件夹。";
+            StatusTextBlock.Text = L("请先选择有效的主文件夹。", "Choose a valid source folder first.");
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(targetDir) && !Directory.Exists(targetDir))
         {
-            StatusTextBlock.Text = "副文件夹不存在，请重新选择。";
+            StatusTextBlock.Text = L("副文件夹不存在，请重新选择。", "The target folder does not exist. Please choose it again.");
             return;
         }
 
@@ -578,7 +820,9 @@ public sealed partial class MainWindow : Window
             {
                 FirstCountTextBlock.Text = _firstLevelItems.Count.ToString();
                 SecondCountTextBlock.Text = secondCount.ToString();
-                StatusTextBlock.Text = $"已加载 {_firstLevelItems.Count} 个第一层目录，{secondCount} 个第二层目录。";
+                StatusTextBlock.Text = L(
+                    $"已加载 {_firstLevelItems.Count} 个第一层目录，{secondCount} 个第二层目录。",
+                    $"Loaded {_firstLevelItems.Count} first-level folders and {secondCount} second-level folders.");
                 if (_firstLevelItems.Count > 0)
                 {
                     FirstLevelListView.SelectedIndex = 0;
@@ -587,15 +831,16 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    private void PopulateSecondLevelList(FirstLevelFolderItem? firstItem)
+    private void PopulateSecondLevelList(FirstLevelFolderItem? firstItem, bool preserveStatus = false)
     {
         _secondLevelItems.Clear();
         ClearPreview();
-        CurrentFolderTextBlock.Text = "未选择";
-        CurrentStateTextBlock.Text = "未选择";
+        CurrentFolderTextBlock.Text = StateNotSelectedText;
+        CurrentStateTextBlock.Text = StateNotSelectedText;
         CurrentStateTextBlock.Foreground = NeutralBrush;
         _currentSecondLevelPath = null;
         LoadDefaultShortcutTemplate();
+        LoadLinkForCurrentMod(null);
 
         if (firstItem is null)
         {
@@ -607,21 +852,26 @@ public sealed partial class MainWindow : Window
             _secondLevelItems.Add(child);
         }
 
-        StatusTextBlock.Text = "当前第一层目录：" + firstItem.Path;
+        if (!preserveStatus)
+        {
+            StatusTextBlock.Text = L("当前第一层目录：", "Current first-level folder: ") + firstItem.Path;
+        }
+
         if (_secondLevelItems.Count > 0)
         {
             SecondLevelListView.SelectedIndex = 0;
         }
     }
 
-    private void ShowSecondLevelDetails(SecondLevelFolderItem? item)
+    private void ShowSecondLevelDetails(SecondLevelFolderItem? item, bool preserveStatus = false)
     {
         if (item is null)
         {
-            CurrentFolderTextBlock.Text = "未选择";
-            CurrentStateTextBlock.Text = "未选择";
+            CurrentFolderTextBlock.Text = StateNotSelectedText;
+            CurrentStateTextBlock.Text = StateNotSelectedText;
             CurrentStateTextBlock.Foreground = NeutralBrush;
             ClearPreview();
+            LoadLinkForCurrentMod(null);
             return;
         }
 
@@ -629,16 +879,20 @@ public sealed partial class MainWindow : Window
         CurrentStateTextBlock.Text = item.State;
         SetStateColor(item.State);
         UpdatePreviewForDirectory(item.Path, item.Files);
-        StatusTextBlock.Text = "当前查看：" + item.Path;
+
+        if (!preserveStatus)
+        {
+            StatusTextBlock.Text = L("当前查看：", "Viewing: ") + item.Path;
+        }
     }
 
     private void SetStateColor(string? state)
     {
-        if (string.Equals(state, "已复制", StringComparison.CurrentCultureIgnoreCase))
+        if (string.Equals(state, StateCopiedText, StringComparison.CurrentCultureIgnoreCase))
         {
             CurrentStateTextBlock.Foreground = CopiedBrush;
         }
-        else if (string.Equals(state, "未复制", StringComparison.CurrentCultureIgnoreCase))
+        else if (string.Equals(state, StateMissingText, StringComparison.CurrentCultureIgnoreCase))
         {
             CurrentStateTextBlock.Foreground = MissingBrush;
         }
@@ -653,7 +907,9 @@ public sealed partial class MainWindow : Window
         string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(targetDir))
         {
-            await ShowMessageAsync("请先选择有效的副文件夹。", "未设置副文件夹");
+            await ShowMessageAsync(
+                L("请先选择有效的副文件夹。", "Choose a valid target folder first."),
+                L("未设置副文件夹", "Target folder not set"));
             return;
         }
 
@@ -663,21 +919,23 @@ public sealed partial class MainWindow : Window
         {
             if (Directory.Exists(targetPath))
             {
-                UpdateProgress(15, "正在移除目录...");
+                UpdateProgress(15, L("正在移除目录...", "Removing folder..."));
                 await Task.Run(() => Directory.Delete(targetPath, true));
-                UpdateProgress(100, "移除完成");
-                StatusTextBlock.Text = item.Name + " 已从副文件夹移除。";
+                UpdateProgress(100, L("移除完成", "Removal complete"));
+                StatusTextBlock.Text = item.Name + L(" 已从副文件夹移除。", " was removed from the target folder.");
             }
             else
             {
                 var progress = new Progress<ProgressInfo>(info => UpdateProgress(info.Percent, info.Message));
                 await CopyDirectoryWithProgressAsync(item.Path, targetPath, progress);
-                StatusTextBlock.Text = item.Name + " 已复制到副文件夹。";
+                StatusTextBlock.Text = item.Name + L(" 已复制到副文件夹。", " was copied to the target folder.");
             }
         }
         catch (Exception ex)
         {
-            await ShowMessageAsync("操作失败：" + ex.Message, "错误");
+            await ShowMessageAsync(
+                L("操作失败：", "Operation failed: ") + ex.Message,
+                L("错误", "Error"));
         }
         finally
         {
@@ -701,7 +959,7 @@ public sealed partial class MainWindow : Window
 
                 if (entries.Count == 0)
                 {
-                    throw new InvalidOperationException("这个 ZIP 里没有可解压的文件。");
+                    throw new InvalidOperationException(L("这个 ZIP 里没有可解压的文件。", "This ZIP file does not contain extractable files."));
                 }
 
                 for (int index = 0; index < entries.Count; index++)
@@ -716,17 +974,19 @@ public sealed partial class MainWindow : Window
 
                     entry.ExtractToFile(destinationPath, true);
                     int percent = Math.Min(100, (index + 1) * 100 / entries.Count);
-                    DispatcherQueue.TryEnqueue(() => UpdateProgress(percent, "正在解压文件..."));
+                    DispatcherQueue.TryEnqueue(() => UpdateProgress(percent, L("正在解压文件...", "Extracting files...")));
                 }
             });
 
-            StatusTextBlock.Text = $"已将 {Path.GetFileName(zipPath)} 解压到 {item.Name}。";
+            StatusTextBlock.Text = L($"已将 {Path.GetFileName(zipPath)} 解压到 {item.Name}。", $"Extracted {Path.GetFileName(zipPath)} to {item.Name}.");
             await RefreshListsAsync();
             SelectSecondLevelByPath(item.Path);
         }
         catch (Exception ex)
         {
-            await ShowMessageAsync("导入 ZIP 失败：" + ex.Message, "导入失败");
+            await ShowMessageAsync(
+                L("导入 ZIP 失败：", "ZIP import failed: ") + ex.Message,
+                L("导入失败", "Import failed"));
         }
         finally
         {
@@ -741,15 +1001,13 @@ public sealed partial class MainWindow : Window
         {
             if (!IsImageFile(imagePath))
             {
-                throw new InvalidOperationException("拖入的文件不是受支持的图片格式。");
+                throw new InvalidOperationException(L("拖入的文件不是受支持的图片格式。", "The dropped file is not a supported image format."));
             }
 
             string extension = Path.GetExtension(imagePath).ToLowerInvariant();
-
             await Task.Run(() =>
             {
                 Directory.CreateDirectory(item.Path);
-
                 foreach (string existingFile in Directory.GetFiles(item.Path))
                 {
                     string baseName = Path.GetFileNameWithoutExtension(existingFile).ToLowerInvariant();
@@ -763,13 +1021,15 @@ public sealed partial class MainWindow : Window
                 File.Copy(imagePath, targetPath, true);
             });
 
-            StatusTextBlock.Text = item.Name + " 的预览图已更新。";
+            StatusTextBlock.Text = item.Name + L(" 的预览图已更新。", "'s preview image was updated.");
             await RefreshListsAsync();
             SelectSecondLevelByPath(item.Path);
         }
         catch (Exception ex)
         {
-            await ShowMessageAsync("导入预览图失败：" + ex.Message, "导入失败");
+            await ShowMessageAsync(
+                L("导入预览图失败：", "Preview import failed: ") + ex.Message,
+                L("导入失败", "Import failed"));
         }
         finally
         {
@@ -788,14 +1048,14 @@ public sealed partial class MainWindow : Window
 
             Directory.CreateDirectory(targetPath);
             currentStep++;
-            progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, "正在创建目录..."));
+            progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, L("正在创建目录...", "Creating folder...")));
 
             foreach (string directory in directories)
             {
                 string relativePath = directory[sourcePath.Length..].TrimStart(Path.DirectorySeparatorChar);
                 Directory.CreateDirectory(Path.Combine(targetPath, relativePath));
                 currentStep++;
-                progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, "正在创建子目录..."));
+                progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, L("正在创建子目录...", "Creating subfolders...")));
             }
 
             foreach (string file in files)
@@ -810,10 +1070,10 @@ public sealed partial class MainWindow : Window
 
                 File.Copy(file, destinationFile, true);
                 currentStep++;
-                progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, "正在复制文件..."));
+                progress.Report(new ProgressInfo(currentStep * 100 / totalSteps, L("正在复制文件...", "Copying files...")));
             }
 
-            progress.Report(new ProgressInfo(100, "复制完成"));
+            progress.Report(new ProgressInfo(100, L("复制完成", "Copy complete")));
         });
     }
 
@@ -826,8 +1086,10 @@ public sealed partial class MainWindow : Window
     private void SetBusyState(bool busy)
     {
         ThemeToggleButton.IsEnabled = !busy;
+        LanguageToggleButton.IsEnabled = !busy;
         FirstLevelListView.IsEnabled = !busy;
         SecondLevelListView.IsEnabled = !busy;
+        OpenModLinkButton.IsEnabled = !busy && !string.IsNullOrWhiteSpace(ModLinkTextBox.Text);
     }
 
     private void LoadDefaultShortcutTemplate()
@@ -911,6 +1173,41 @@ public sealed partial class MainWindow : Window
         UpdateShortcutRowVisibility();
     }
 
+    private void LoadLinkForCurrentMod(SecondLevelFolderItem? item)
+    {
+        _isLoadingModLink = true;
+        ModLinkTextBox.Text = item is not null && _modLinks.TryGetValue(item.Path, out string? link) ? link : string.Empty;
+        _isLoadingModLink = false;
+        UpdateLinkButtonState();
+    }
+
+    private void SaveCurrentModLink()
+    {
+        if (_isLoadingModLink || string.IsNullOrEmpty(_currentSecondLevelPath))
+        {
+            UpdateLinkButtonState();
+            return;
+        }
+
+        string link = (ModLinkTextBox.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(link))
+        {
+            _modLinks.Remove(_currentSecondLevelPath);
+        }
+        else
+        {
+            _modLinks[_currentSecondLevelPath] = link;
+        }
+
+        SaveConfig();
+        UpdateLinkButtonState();
+    }
+
+    private void UpdateLinkButtonState()
+    {
+        OpenModLinkButton.IsEnabled = !string.IsNullOrWhiteSpace(ModLinkTextBox.Text);
+    }
+
     private void UpdateShortcutRowVisibility()
     {
         for (int i = 0; i < MaxShortcutRows; i++)
@@ -918,7 +1215,7 @@ public sealed partial class MainWindow : Window
             ShortcutRowsPanel.Children[i].Visibility = i < _visibleShortcutRows ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        ShortcutRowsTextBlock.Text = $"当前 {_visibleShortcutRows} / {MaxShortcutRows} 行";
+        ShortcutRowsTextBlock.Text = L($"当前 {_visibleShortcutRows} / {MaxShortcutRows} 行", $"{_visibleShortcutRows} / {MaxShortcutRows} rows");
     }
 
     private async Task<bool> TryRunBoundShortcutAsync(string shortcut)
@@ -948,14 +1245,14 @@ public sealed partial class MainWindow : Window
         string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(targetDir))
         {
-            StatusTextBlock.Text = "快捷键执行失败：请先设置有效的副文件夹。";
+            StatusTextBlock.Text = L("快捷键执行失败：请先设置有效的副文件夹。", "Shortcut failed: choose a valid target folder first.");
             return;
         }
 
         string targetPath = GetTargetDirectoryPath(targetDir, item.Path);
         if (Directory.Exists(targetPath))
         {
-            StatusTextBlock.Text = item.Name + " 已通过快捷键定位，当前已经复制。";
+            StatusTextBlock.Text = item.Name + L(" 已通过快捷键定位，当前已经复制。", " was located by shortcut and is already copied.");
             return;
         }
 
@@ -1084,14 +1381,26 @@ public sealed partial class MainWindow : Window
         return Path.Combine(targetDir, Path.GetFileName(sourceDirectoryPath));
     }
 
-    private static string GetFolderCopyState(string targetDir, string directoryPath)
+    private string GetFolderCopyState(string targetDir, string directoryPath)
     {
         if (string.IsNullOrWhiteSpace(targetDir))
         {
-            return "未设置";
+            return StateNotConfiguredText;
         }
 
-        return Directory.Exists(GetTargetDirectoryPath(targetDir, directoryPath)) ? "已复制" : "未复制";
+        return Directory.Exists(GetTargetDirectoryPath(targetDir, directoryPath)) ? StateCopiedText : StateMissingText;
+    }
+
+    private void RefreshLocalizedStates()
+    {
+        string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
+        foreach (FirstLevelFolderItem first in _firstLevelItems)
+        {
+            foreach (SecondLevelFolderItem second in first.Children)
+            {
+                second.State = GetFolderCopyState(targetDir, second.Path);
+            }
+        }
     }
 
     private SecondLevelFolderItem? FindSecondLevelByPath(string path)
@@ -1125,6 +1434,7 @@ public sealed partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
         {
             PreviewImage.Source = null;
+            PreviewHintTextBlock.Text = L("当前第二层文件夹未找到可预览图片", "No preview image was found for the current second-level folder.");
             PreviewHintTextBlock.Visibility = Visibility.Visible;
             return;
         }
@@ -1137,7 +1447,7 @@ public sealed partial class MainWindow : Window
         catch
         {
             PreviewImage.Source = null;
-            PreviewHintTextBlock.Text = "图片无法读取或格式不受支持";
+            PreviewHintTextBlock.Text = L("图片无法读取或格式不受支持", "The image could not be loaded or is not supported.");
             PreviewHintTextBlock.Visibility = Visibility.Visible;
         }
     }
@@ -1145,7 +1455,7 @@ public sealed partial class MainWindow : Window
     private void ClearPreview()
     {
         PreviewImage.Source = null;
-        PreviewHintTextBlock.Text = "当前第二层文件夹未找到可预览图片";
+        PreviewHintTextBlock.Text = L("当前第二层文件夹未找到可预览图片", "No preview image was found for the current second-level folder.");
         PreviewHintTextBlock.Visibility = Visibility.Visible;
     }
 
@@ -1175,13 +1485,25 @@ public sealed partial class MainWindow : Window
         return !string.IsNullOrEmpty(extension) && ImageExtensions.Contains(extension.ToLowerInvariant());
     }
 
+    private static string NormalizeLink(string link)
+    {
+        string trimmed = link.Trim();
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        return "https://" + trimmed;
+    }
+
     private async Task ShowMessageAsync(string content, string title)
     {
         var dialog = new ContentDialog
         {
             Title = title,
             Content = content,
-            CloseButtonText = "确定",
+            CloseButtonText = L("确定", "OK"),
             XamlRoot = RootGrid.XamlRoot
         };
 

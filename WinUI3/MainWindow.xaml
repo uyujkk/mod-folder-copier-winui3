@@ -5,46 +5,50 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:ModFolderCopier.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="Mod 文件复制器 v2.2"
+    Title="Mod Folder Copier v2.2"
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid" Background="{ThemeResource AppPageBackgroundBrush}" KeyDown="OnRootKeyDown">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24" Spacing="18">
                 <Border Style="{StaticResource CardBorderStyle}">
-                    <Grid ColumnSpacing="18">
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="Mod 文件复制器" FontSize="34" FontWeight="SemiBold" />
+                                <TextBlock x:Name="HeaderTitleTextBlock" FontSize="34" FontWeight="SemiBold" />
                                 <Border Style="{StaticResource SoftBadgeBorderStyle}">
-                                    <TextBlock Text="WinUI 3" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="HeaderFrameworkBadgeTextBlock" FontWeight="SemiBold" />
                                 </Border>
                                 <Border Style="{StaticResource SoftBadgeBorderStyle}">
-                                    <TextBlock Text="v2.2" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="HeaderVersionBadgeTextBlock" FontWeight="SemiBold" />
                                 </Border>
                             </StackPanel>
-                            <TextBlock
-                                x:Name="HeaderSubtitleText"
-                                Style="{StaticResource MutedTextStyle}"
-                                Text="保留两级目录、预览图、复制切换、ZIP 导入和按 Mod 保存的快捷键绑定。" />
-                            <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="左侧选择第一层分类，再选择第二层 Mod。双击第二层可直接复制或移除。" />
+                            <TextBlock x:Name="HeaderSubtitleTextBlock" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="HeaderCaptionTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <Button
-                            x:Name="ThemeToggleButton"
+                            x:Name="LanguageToggleButton"
                             Grid.Column="1"
-                            MinWidth="140"
+                            MinWidth="132"
+                            Height="40"
+                            VerticalAlignment="Top"
+                            Click="OnLanguageToggleClicked"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+
+                        <Button
+                            x:Name="ThemeToggleButton"
+                            Grid.Column="2"
+                            MinWidth="132"
                             Height="40"
                             VerticalAlignment="Top"
                             Click="OnThemeToggleClicked"
-                            Content="切换深色"
                             Style="{StaticResource SecondaryButtonStyle}" />
                     </Grid>
                 </Border>
@@ -61,59 +65,60 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Spacing="6">
-                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="路径小模块" />
-                            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="主文件夹、副文件夹和 XXMI 启动器都集中在这里管理。" />
+                            <TextBlock x:Name="PathSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock x:Name="PathSectionSubtitleTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <Grid Grid.Row="1" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="84" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="148" />
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="156" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="主文件夹" />
+                            <TextBlock x:Name="SourceLabelTextBlock" VerticalAlignment="Center" />
                             <Border Grid.Column="1" Style="{StaticResource InsetBorderStyle}">
                                 <TextBox x:Name="SourceTextBox" Padding="12,8" BorderThickness="0" />
                             </Border>
-                            <Button Grid.Column="2" Click="OnPickSourceClicked" Content="选择" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="3" Click="OnOpenSourceClicked" Content="打开主文件夹" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="PickSourceButton" Grid.Column="2" Click="OnPickSourceClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="OpenSourceButton" Grid.Column="3" Click="OnOpenSourceClicked" Style="{StaticResource SecondaryButtonStyle}" />
                         </Grid>
 
                         <Grid Grid.Row="2" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="84" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="148" />
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="156" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="副文件夹" />
+                            <TextBlock x:Name="TargetLabelTextBlock" VerticalAlignment="Center" />
                             <Border Grid.Column="1" Style="{StaticResource InsetBorderStyle}">
                                 <TextBox x:Name="TargetTextBox" Padding="12,8" BorderThickness="0" />
                             </Border>
-                            <Button Grid.Column="2" Click="OnPickTargetClicked" Content="选择" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="3" Click="OnOpenTargetClicked" Content="打开副文件夹" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="PickTargetButton" Grid.Column="2" Click="OnPickTargetClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="OpenTargetButton" Grid.Column="3" Click="OnOpenTargetClicked" Style="{StaticResource SecondaryButtonStyle}" />
                         </Grid>
 
                         <Grid Grid.Row="3" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="84" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="148" />
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="156" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock VerticalAlignment="Center" Text="启动器" />
+                            <TextBlock x:Name="LauncherLabelTextBlock" VerticalAlignment="Center" />
                             <Border Grid.Column="1" Style="{StaticResource InsetBorderStyle}">
-                                <TextBox x:Name="LauncherTextBox" Padding="12,8" BorderThickness="0" PlaceholderText="选择 XXMI 启动器 EXE" />
+                                <TextBox x:Name="LauncherTextBox" Padding="12,8" BorderThickness="0" />
                             </Border>
-                            <Button Grid.Column="2" Click="OnPickLauncherClicked" Content="选择程序" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="3" Click="OnOpenLauncherClicked" Content="打开启动器位置" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="PickLauncherButton" Grid.Column="2" Click="OnPickLauncherClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="OpenLauncherButton" Grid.Column="3" Click="OnOpenLauncherClicked" Style="{StaticResource SecondaryButtonStyle}" />
                         </Grid>
 
                         <TextBlock
+                            x:Name="PathHintTextBlock"
                             Grid.Row="4"
                             Style="{StaticResource MutedTextStyle}"
-                            Text="支持刷新目录、导入 ZIP、复制当前第二层文件夹，也可以直接运行 XXMI 启动器。" />
+                            TextWrapping="Wrap" />
 
                         <Grid Grid.Row="5" ColumnSpacing="14">
                             <Grid.ColumnDefinitions>
@@ -125,12 +130,12 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="8" VerticalAlignment="Center">
                                 <ProgressBar x:Name="CopyProgressBar" Minimum="0" Maximum="100" Height="8" />
-                                <TextBlock x:Name="ProgressTextBlock" Style="{StaticResource MutedTextStyle}" Text="当前无复制任务" />
+                                <TextBlock x:Name="ProgressTextBlock" Style="{StaticResource MutedTextStyle}" />
                             </StackPanel>
-                            <Button Grid.Column="1" Click="OnRefreshClicked" Content="刷新目录" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="2" Click="OnImportZipClicked" Content="导入 ZIP 到当前第二层" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="3" Click="OnRunLauncherClicked" Content="运行 XXMI 启动器" Style="{StaticResource SecondaryButtonStyle}" />
-                            <Button Grid.Column="4" Click="OnToggleCopyClicked" Content="复制当前第二层文件夹" Style="{StaticResource PrimaryButtonStyle}" />
+                            <Button x:Name="RefreshButton" Grid.Column="1" Click="OnRefreshClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="ImportZipButton" Grid.Column="2" Click="OnImportZipClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="RunLauncherButton" Grid.Column="3" Click="OnRunLauncherClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="ToggleCopyButton" Grid.Column="4" Click="OnToggleCopyClicked" Style="{StaticResource PrimaryButtonStyle}" />
                         </Grid>
                     </Grid>
                 </Border>
@@ -145,33 +150,33 @@
 
                     <Border Grid.Column="0" Style="{StaticResource MetricCardStyle}">
                         <StackPanel Spacing="8">
-                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="第一层目录数" />
+                            <TextBlock x:Name="FirstCountLabelTextBlock" Style="{StaticResource MutedTextStyle}" />
                             <TextBlock x:Name="FirstCountTextBlock" Style="{StaticResource MetricValueTextStyle}" Text="0" />
-                            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="当前主目录下的分类数量" />
+                            <TextBlock x:Name="FirstCountHintTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="1" Style="{StaticResource MetricCardStyle}">
                         <StackPanel Spacing="8">
-                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="第二层目录数" />
+                            <TextBlock x:Name="SecondCountLabelTextBlock" Style="{StaticResource MutedTextStyle}" />
                             <TextBlock x:Name="SecondCountTextBlock" Style="{StaticResource MetricValueTextStyle}" Text="0" />
-                            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="当前扫描到的 Mod 总数" />
+                            <TextBlock x:Name="SecondCountHintTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="2" Style="{StaticResource MetricCardStyle}">
                         <StackPanel Spacing="8">
-                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="当前复制状态" />
-                            <TextBlock x:Name="CurrentStateTextBlock" Style="{StaticResource MetricValueTextStyle}" Text="未选择" />
-                            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="根据副文件夹中的同名目录判断" />
+                            <TextBlock x:Name="CurrentStateLabelTextBlock" Style="{StaticResource MutedTextStyle}" />
+                            <TextBlock x:Name="CurrentStateTextBlock" Style="{StaticResource MetricValueTextStyle}" />
+                            <TextBlock x:Name="CurrentStateHintTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="3" Style="{StaticResource MetricCardStyle}">
                         <StackPanel Spacing="8">
-                            <TextBlock Style="{StaticResource MutedTextStyle}" Text="当前第二层文件夹" />
-                            <TextBlock x:Name="CurrentFolderTextBlock" FontSize="22" FontWeight="SemiBold" Text="未选择" TextWrapping="Wrap" />
-                            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="这里会显示当前选中的 Mod 名称" />
+                            <TextBlock x:Name="CurrentFolderLabelTextBlock" Style="{StaticResource MutedTextStyle}" />
+                            <TextBlock x:Name="CurrentFolderTextBlock" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="CurrentFolderHintTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -180,7 +185,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="320" />
                         <ColumnDefinition Width="360" />
-                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="340" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
@@ -191,8 +196,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="第一层文件夹" />
-                            <TextBlock Grid.Row="1" Style="{StaticResource MutedTextStyle}" Text="先选择分类目录" />
+                            <TextBlock x:Name="FirstLevelSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock x:Name="FirstLevelSectionSubtitleTextBlock" Grid.Row="1" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                             <Border Grid.Row="2" Style="{StaticResource InsetBorderStyle}">
                                 <ListView x:Name="FirstLevelListView" SelectionChanged="OnFirstLevelSelectionChanged" Style="{StaticResource AppListViewStyle}">
                                     <ListView.ItemTemplate>
@@ -223,8 +228,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="第二层文件夹" />
-                            <TextBlock Grid.Row="1" Style="{StaticResource MutedTextStyle}" Text="再选择具体 Mod" />
+                            <TextBlock x:Name="SecondLevelSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock x:Name="SecondLevelSectionSubtitleTextBlock" Grid.Row="1" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                             <Border Grid.Row="2" Style="{StaticResource InsetBorderStyle}">
                                 <ListView x:Name="SecondLevelListView" SelectionChanged="OnSecondLevelSelectionChanged" DoubleTapped="OnSecondLevelDoubleTapped" Style="{StaticResource AppListViewStyle}">
                                     <ListView.ItemTemplate>
@@ -256,25 +261,27 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="快捷键与功能" />
+                            <TextBlock x:Name="ShortcutSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
                             <Grid Grid.Row="1" ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="4">
-                                    <TextBlock Style="{StaticResource MutedTextStyle}" Text="当前选中 Mod 的快捷键绑定" />
-                                    <TextBlock x:Name="ShortcutRowsTextBlock" Style="{StaticResource MutedTextStyle}" Text="当前 1 / 10 行" />
+                                    <TextBlock x:Name="ShortcutSectionSubtitleTextBlock" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="ShortcutRowsTextBlock" Style="{StaticResource MutedTextStyle}" />
                                 </StackPanel>
-                                <Button Grid.Column="1" Click="OnAddShortcutRowClicked" Content="新增一行" Style="{StaticResource SecondaryButtonStyle}" />
+                                <Button x:Name="AddShortcutRowButton" Grid.Column="1" Click="OnAddShortcutRowClicked" Style="{StaticResource SecondaryButtonStyle}" />
                             </Grid>
                             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                                 <StackPanel x:Name="ShortcutRowsPanel" Spacing="10" />
                             </ScrollViewer>
                             <TextBlock
+                                x:Name="ShortcutHintTextBlock"
                                 Grid.Row="3"
+                                Margin="0,4,0,2"
                                 Style="{StaticResource MutedTextStyle}"
-                                Text="当前窗口聚焦时，按下填写的快捷键会定位并执行对应 Mod。" />
+                                TextWrapping="WrapWholeWords" />
                         </Grid>
                     </Border>
 
@@ -285,29 +292,58 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="默认图像预览" />
-                            <TextBlock Grid.Row="1" Style="{StaticResource MutedTextStyle}" Text="优先 preview / cover / image，可拖动图片到这里" />
+                            <TextBlock x:Name="PreviewSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock x:Name="PreviewSectionSubtitleTextBlock" Grid.Row="1" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                             <Border
                                 x:Name="PreviewDropBorder"
                                 Grid.Row="2"
+                                Height="320"
                                 AllowDrop="True"
                                 Style="{StaticResource InsetBorderStyle}"
                                 Background="{ThemeResource AppPreviewBackgroundBrush}"
                                 DragOver="OnPreviewDragOver"
                                 Drop="OnPreviewDrop">
                                 <Grid>
-                                    <Image x:Name="PreviewImage" Stretch="Uniform" />
+                                    <Image x:Name="PreviewImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     <TextBlock
                                         x:Name="PreviewHintTextBlock"
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
+                                        Margin="18"
                                         TextAlignment="Center"
-                                        Style="{StaticResource MutedTextStyle}"
-                                        Text="当前第二层文件夹未找到可预览图片&#10;可将图片拖到这里设置为当前 Mod 预览图" />
+                                        TextWrapping="Wrap"
+                                        Style="{StaticResource MutedTextStyle}" />
                                 </Grid>
                             </Border>
-                            <TextBlock Grid.Row="3" Style="{StaticResource MutedTextStyle}" Text="默认显示当前第二层文件夹中的预览图，也支持直接拖图导入。" />
+
+                            <StackPanel Grid.Row="3" Spacing="6">
+                                <TextBlock x:Name="ModLinkSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
+                                <TextBlock x:Name="ModLinkSectionSubtitleTextBlock" Style="{StaticResource CaptionTextStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Border Grid.Row="4" Style="{StaticResource InsetBorderStyle}">
+                                <TextBox
+                                    x:Name="ModLinkTextBox"
+                                    Padding="12,8"
+                                    BorderThickness="0"
+                                    TextChanged="OnModLinkTextChanged" />
+                            </Border>
+
+                            <Grid Grid.Row="5" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="PreviewFooterTextBlock" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                                <Button
+                                    x:Name="OpenModLinkButton"
+                                    Grid.Column="1"
+                                    Click="OnOpenModLinkClicked"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>
@@ -318,8 +354,8 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="StatusTextBlock" Style="{StaticResource MutedTextStyle}" Text="请选择主文件夹和副文件夹。当前版本：v2.2" />
-                        <TextBlock Grid.Column="1" Style="{StaticResource CaptionTextStyle}" Text="Author: uyujkk" VerticalAlignment="Center" />
+                        <TextBlock x:Name="StatusTextBlock" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="AuthorTextBlock" Grid.Column="1" Style="{StaticResource CaptionTextStyle}" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
             </StackPanel>
