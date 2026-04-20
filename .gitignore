@@ -1,0 +1,8 @@
+﻿dist/
+WinUI3/bin/
+WinUI3/obj/
+.vs/
+*.user
+*.suo
+config.ini
+startup.log
