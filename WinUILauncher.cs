@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -36,10 +37,36 @@ internal static class WinUILauncher
             {
                 FileName = targetExe,
                 WorkingDirectory = runtimeDirectory,
-                UseShellExecute = true
+                UseShellExecute = false
             };
 
-            Process.Start(startInfo);
+            Process process = Process.Start(startInfo);
+            if (process == null)
+            {
+                throw new InvalidOperationException("WinUI 3 程序没有成功启动。");
+            }
+        }
+        catch (Win32Exception ex)
+        {
+            if (ex.NativeErrorCode == 1223)
+            {
+                MessageBox.Show(
+                    "启动 WinUI 3 版本时被系统取消。\n\n请尝试：\n" +
+                    "1. 将压缩包完整解压到普通文件夹\n" +
+                    "2. 右键压缩包或 EXE，检查属性中是否有“解除锁定”\n" +
+                    "3. 确认安全软件或系统弹窗没有拦截程序\n\n" +
+                    "详细信息： " + ex.Message,
+                    "启动失败",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            MessageBox.Show(
+                "启动 WinUI 3 版本时出错：\n" + ex.Message,
+                "启动失败",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
         catch (Exception ex)
         {
