@@ -20,7 +20,7 @@ namespace ModFolderCopier.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private const string AppVersion = "v2.2.2";
+    private const string AppVersion = "v2.2.3";
     private const int MaxShortcutRows = 10;
 
     private enum AppLanguage
@@ -138,8 +138,8 @@ public sealed partial class MainWindow : Window
         ShortcutSectionSubtitleTextBlock.Text = L("当前选中 Mod 的快捷键说明", "Shortcut notes for the selected mod");
         AddShortcutRowButton.Content = L("新增一行", "Add Row");
         ShortcutHintTextBlock.Text = L(
-            "当前窗口聚焦时，按下填写的快捷键会定位并执行对应 Mod。",
-            "When this window is focused, the filled shortcut will locate and run the corresponding mod.");
+            "快捷键需要至少两个按键组合。先点选快捷键输入框，再按下组合键即可自动录入；当前窗口聚焦时，会定位并执行对应 Mod。",
+            "Shortcuts must use at least a two-key combination. Click a shortcut box first, then press the combination to capture it; when this window is focused, it will locate and run the corresponding mod.");
 
         PreviewSectionTitleTextBlock.Text = L("默认图像预览", "Image Preview");
         PreviewSectionSubtitleTextBlock.Text = L(
@@ -165,6 +165,7 @@ public sealed partial class MainWindow : Window
         UpdateShortcutRowVisibility();
         UpdateLinkButtonState();
         RefreshLocalizedStates();
+        ApplyTextOverrides();
 
         if (FirstLevelListView.SelectedItem is FirstLevelFolderItem firstItem)
         {
@@ -186,6 +187,28 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void ApplyTextOverrides()
+    {
+        PathSectionSubtitleTextBlock.Text = L(
+            "把 Mod 存储文件夹、目标文件夹和启动器统一放在这里，常用操作可以直接使用这些路径。",
+            "Keep the mod storage folder, target folder, and launcher together here for quick access.");
+        SourceLabelTextBlock.Text = L("Mod 存储文件夹", "Mod Storage");
+        TargetLabelTextBlock.Text = L("目标文件夹", "Target Folder");
+        OpenSourceButton.Content = L("打开 Mod 存储文件夹", "Open Mod Storage");
+        OpenTargetButton.Content = L("打开目标文件夹", "Open Target Folder");
+        PathHintTextBlock.Text = L(
+            "可以刷新目录、导入 ZIP、将当前第二层 Mod 复制到目标文件夹，也可以直接运行外部启动器。",
+            "Refresh folders, import ZIP files, copy the selected second-level mod into the target folder, or run the external launcher.");
+
+        FirstCountHintTextBlock.Text = L("当前 Mod 存储文件夹下的分类数量", "Number of categories in the mod storage folder");
+
+        ShortcutSectionTitleTextBlock.Text = L("快捷键与描述", "Shortcut and Description");
+        ShortcutSectionSubtitleTextBlock.Text = L("为当前选中的 Mod 记录快捷键和描述", "Record a shortcut and description for the selected mod");
+        ShortcutHintTextBlock.Text = L(
+            "点击快捷键输入框后可直接按键录入，支持单键和组合键；当前窗口聚焦时，按已绑定的快捷键会定位并执行对应 Mod。",
+            "Click a shortcut box and press a key to capture it. Single keys and key combinations are both supported; when this window is focused, the bound shortcut will locate and run the corresponding mod.");
+    }
+
     private void ApplyShortcutPlaceholders()
     {
         foreach (TextBox box in _shortcutKeyBoxes)
@@ -195,15 +218,15 @@ public sealed partial class MainWindow : Window
 
         foreach (TextBox box in _shortcutActionBoxes)
         {
-            box.PlaceholderText = L("功能", "Action");
+            box.PlaceholderText = L("描述", "Description");
         }
     }
 
     private void SetDefaultStatus()
     {
         StatusTextBlock.Text = L(
-            $"请选择主文件夹和副文件夹。当前版本：{AppVersion}",
-            $"Choose a source and target folder. Current version: {AppVersion}");
+            $"请选择 Mod 存储文件夹和目标文件夹。当前版本：{AppVersion}",
+            $"Choose a mod storage folder and target folder. Current version: {AppVersion}");
     }
 
     private void BuildShortcutRows()
@@ -215,16 +238,18 @@ public sealed partial class MainWindow : Window
         for (int index = 0; index < MaxShortcutRows; index++)
         {
             var rowGrid = new Grid { ColumnSpacing = 12 };
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
             rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
 
             var keyBorder = CreateInsetBorder();
             var keyBox = new TextBox
             {
+                IsReadOnly = true,
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(10, 8, 10, 8)
             };
             keyBox.TextChanged += OnShortcutTextChanged;
+            keyBox.KeyDown += OnShortcutKeyBoxKeyDown;
             keyBorder.Child = keyBox;
 
             var actionBorder = CreateInsetBorder();
@@ -418,6 +443,37 @@ public sealed partial class MainWindow : Window
         {
             SaveCurrentModBindings();
         }
+    }
+
+    private void OnShortcutKeyBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not TextBox box)
+        {
+            return;
+        }
+
+        if (e.KeyStatus.WasKeyDown || e.KeyStatus.RepeatCount > 1)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is VirtualKey.Back or VirtualKey.Delete or VirtualKey.Escape)
+        {
+            box.Text = string.Empty;
+            e.Handled = true;
+            return;
+        }
+
+        string shortcut = BuildShortcutFromEvent(e);
+        if (string.IsNullOrEmpty(shortcut))
+        {
+            return;
+        }
+
+        box.Text = shortcut;
+        box.SelectionStart = box.Text.Length;
+        e.Handled = true;
     }
 
     private void OnModLinkTextChanged(object sender, TextChangedEventArgs e)
@@ -1288,6 +1344,7 @@ public sealed partial class MainWindow : Window
     private static string BuildShortcutFromEvent(KeyRoutedEventArgs e)
     {
         var parts = new List<string>();
+
         if (IsModifierDown(VirtualKey.Control))
         {
             parts.Add("Ctrl");
@@ -1304,7 +1361,7 @@ public sealed partial class MainWindow : Window
         }
 
         string key = KeyToString(e.Key);
-        if (string.IsNullOrEmpty(key) || key is "Control" or "Shift" or "Alt")
+        if (string.IsNullOrEmpty(key) || key is "Control" or "Shift" or "Alt" or "LeftWindows" or "RightWindows")
         {
             return string.Empty;
         }
