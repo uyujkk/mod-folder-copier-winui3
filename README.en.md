@@ -1,34 +1,41 @@
 [中文](./README.md) | [English](./README.en.md)
 
-# Mod Folder Copier WinUI 3 v2.2.4
+# Mod Folder Copier WinUI 3 v2.2.6
 
-> Non-official notice:  
+> Non-official notice:
 > This project is an unofficial fan-made tool. It is not affiliated with, endorsed by, or sponsored by XXMI, any game publisher, or any related developers.
 
-This is a WinUI 3 desktop tool for Windows that helps manage two-level mod folders, copy or remove second-level mods, import ZIP files, record per-mod shortcut notes and descriptions, set preview images, and quickly launch an external launcher.
+This is a WinUI 3 desktop tool for Windows that helps manage two-level mod folders, copy or remove second-level mods, import archive files, record per-mod shortcut notes and descriptions, set preview images, bind mod links, and quickly launch an external launcher.
 
 Current version:
 
-- Display version: `v2.2.4`
-- File version: `2.2.4.0`
+- Display version: `v2.2.6`
+- File version: `2.2.6.0`
 
-## 1. Main Features
+## Main Features
 
 - Browse first-level and second-level folders inside the mod storage folder
 - Show a preview image for the selected second-level mod
-- Double-click a second-level mod or use the action button to copy it into the target folder
-- Remove the copied mod if a folder with the same name already exists in the target folder
-- Import `.zip` files directly into the currently selected second-level mod folder
-- Save shortcut notes and descriptions for each second-level mod
+- Double-click a second-level mod or use the action button to copy or remove it
+- Import archives into the currently selected first-level category folder
+- Support `.zip`, `.7z`, `.tar`, `.gz`, `.tgz`, `.bz2`, and `.xz`
+- Save shortcut notes and descriptions for each mod
+- Support single keys, key combinations, and symbol keys for shortcut capture
 - Drag and drop an image into the preview area to set the current mod preview
 - Bind a dedicated link for each mod and open it in the default browser
-- Configure and launch an external launcher such as `XXMI Launcher`
+- Configure and launch an external launcher
 - Support light / dark theme switching
 - Support Chinese / English UI switching
 
-## 2. Recommended Folder Structure
+## What's New In v2.2.6
 
-The app works with a two-level folder layout:
+- Moved the first-level `New` and `Rename` actions to compact icon buttons in the top-right corner
+- Moved the second-level `Delete Mod` action to a compact icon button in the top-right corner
+- Refined the header and action layout for a cleaner, tighter module design
+- Added hover tooltips for the icon buttons
+- Added accessibility names for the icon buttons
+
+## Recommended Folder Structure
 
 ```text
 Mod Storage Folder
@@ -46,9 +53,7 @@ Mod Storage Folder
 - First level: category folders
 - Second level: actual mod folders
 
-The second-level mod folder is the real target for copy, remove, ZIP import, preview, shortcut notes, and links.
-
-## 3. How To Run
+## How To Run
 
 Main launcher:
 
@@ -60,67 +65,12 @@ WinUI app:
 
 In most cases, just run `ModFolderCopier.exe`.
 
-## 4. Interface Overview
-
-### Top Path Section
-
-- Mod Storage Folder
-- Target Folder
-- Launcher Path
-
-### Main Actions
-
-- Refresh folders
-- Import ZIP into current second-level mod
-- Run launcher
-- Copy current second-level folder
-
-### Status Cards
-
-- First-level folder count
-- Second-level folder count
-- Current copy status
-- Current second-level folder name
-
-### First-Level List
-
-Used to select a category.
-
-### Second-Level List
-
-Used to select a specific mod. Double-clicking an entry will copy or remove that mod.
-
-### Shortcut And Description Section
-
-Each mod can store its own:
-
-- Shortcut
-- Description
-
-Supported input:
-
-- Single keys such as `1`, `Q`, `F1`
-- Key combinations such as `Ctrl+1`
-
-### Preview And Link Section
-
-The preview area checks these image names first:
-
-- `preview.*`
-- `cover.*`
-- `thumbnail.*`
-- `image.*`
-
-If none exist, it tries to display the first image found inside the current mod folder.
-
-Each mod can also store its own link, and the quick access button opens it in the default browser.
-
-## 5. Basic Usage
+## Basic Usage
 
 1. Run `ModFolderCopier.exe`
-2. Set the mod storage folder
-3. Set the target folder
-4. Optionally set the launcher path
+2. Set the `Mod Storage Folder`
+3. Set the `Target Folder`
+4. Optionally set the `Launcher`
 5. Click `Refresh`
 6. Choose a first-level category
 7. Choose a second-level mod
@@ -131,22 +81,40 @@ Behavior:
 - If the target folder does not contain a folder with the same name, the mod is copied
 - If the target folder already contains a folder with the same name, the mod is removed
 
-## 6. ZIP Import
+## Interface Overview
 
-1. Select a second-level mod
-2. Click the ZIP import button
-3. Choose a `.zip` file
+### Top Path Section
 
-The archive contents will be extracted into the current mod folder.
+- Mod Storage Folder
+- Target Folder
+- Launcher
 
-## 7. Preview Images
+### First-Level Module
 
-You can either:
+- Search first-level categories
+- Use the top-right icon buttons to create or rename a category
 
-- Manually place preview files such as `preview.png`, `cover.jpg`, `thumbnail.webp`, or `image.png`
-- Drag an image directly into the preview area
+### Second-Level Module
 
-## 8. Configuration
+- Select a specific mod
+- Use the top-right icon button to delete the selected mod
+- A confirmation dialog appears before deletion
+
+### Shortcut And Description
+
+- Each mod can store its own shortcut and description
+- Supports single keys such as `1`, `Q`, `F1`
+- Supports key combinations such as `Ctrl+1`
+- Supports symbol keys such as `/`, `;`, `[`, `]`, and `\`
+
+### Preview And Link
+
+- Checks `preview.*`, `cover.*`, `thumbnail.*`, and `image.*` first
+- Falls back to the first image found in the current mod folder
+- Lets you drag and drop an image into the preview area
+- Lets you bind a web link for each mod and open it quickly
+
+## Configuration
 
 The app stores configuration data in:
 
@@ -162,7 +130,7 @@ This includes:
 - Shortcut notes and descriptions for each mod
 - Links for each mod
 
-## 9. Build
+## Build
 
 Source entry points:
 
@@ -175,3 +143,9 @@ Build command:
 ```powershell
 cmd /c build_winui.bat
 ```
+
+## Changelog
+
+For full update history, see:
+
+- [CHANGELOG.md](./CHANGELOG.md)
