@@ -20,8 +20,9 @@ namespace ModFolderCopier.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private const string AppVersion = "v2.2.3";
+    private const string AppVersion = "v2.2.4";
     private const int MaxShortcutRows = 10;
+    private static readonly string[] SupportedArchiveExtensions = [".zip", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz"];
 
     private enum AppLanguage
     {
@@ -37,6 +38,7 @@ public sealed partial class MainWindow : Window
     private readonly string _configPath = Path.Combine(AppContext.BaseDirectory, "config.ini");
     private readonly ObservableCollection<FirstLevelFolderItem> _firstLevelItems = [];
     private readonly ObservableCollection<SecondLevelFolderItem> _secondLevelItems = [];
+    private readonly List<FirstLevelFolderItem> _allFirstLevelItems = [];
     private readonly List<TextBox> _shortcutKeyBoxes = [];
     private readonly List<TextBox> _shortcutActionBoxes = [];
     private readonly Dictionary<string, List<ShortcutBinding>> _modBindings = new(StringComparer.CurrentCultureIgnoreCase);
@@ -116,7 +118,7 @@ public sealed partial class MainWindow : Window
             "支持刷新目录、导入 ZIP、复制当前第二层文件夹，以及直接运行外部启动器。",
             "Refresh folders, import ZIP files, copy the selected second-level folder, or run the external launcher.");
         RefreshButton.Content = L("刷新目录", "Refresh");
-        ImportZipButton.Content = L("导入 ZIP 到当前第二层", "Import ZIP");
+        ImportZipButton.Content = L("导入压缩文件到当前第一层", "Import Archive");
         RunLauncherButton.Content = L("运行启动器", "Run Launcher");
         ToggleCopyButton.Content = L("复制当前第二层文件夹", "Copy Selected Mod");
 
@@ -131,6 +133,7 @@ public sealed partial class MainWindow : Window
 
         FirstLevelSectionTitleTextBlock.Text = L("第一层文件夹", "First-level folders");
         FirstLevelSectionSubtitleTextBlock.Text = L("先选择分类目录", "Choose a category folder first");
+        FirstLevelSearchTextBox.PlaceholderText = L("搜索第一层文件夹", "Search first-level folders");
         SecondLevelSectionTitleTextBlock.Text = L("第二层文件夹", "Second-level folders");
         SecondLevelSectionSubtitleTextBlock.Text = L("再选择具体 Mod", "Then choose a specific mod");
 
@@ -159,7 +162,7 @@ public sealed partial class MainWindow : Window
             ? L("当前无复制任务", "No active copy task")
             : ProgressTextBlock.Text;
 
-        AuthorTextBlock.Text = L("作者：uyujkk", "Author: uyujkk");
+        AuthorTextBlock.Text = L("工具作者：uyujkk", "Tool author: uyujkk");
 
         ApplyShortcutPlaceholders();
         UpdateShortcutRowVisibility();
@@ -205,8 +208,8 @@ public sealed partial class MainWindow : Window
         ShortcutSectionTitleTextBlock.Text = L("快捷键与描述", "Shortcut and Description");
         ShortcutSectionSubtitleTextBlock.Text = L("为当前选中的 Mod 记录快捷键和描述", "Record a shortcut and description for the selected mod");
         ShortcutHintTextBlock.Text = L(
-            "点击快捷键输入框后可直接按键录入，支持单键和组合键；当前窗口聚焦时，按已绑定的快捷键会定位并执行对应 Mod。",
-            "Click a shortcut box and press a key to capture it. Single keys and key combinations are both supported; when this window is focused, the bound shortcut will locate and run the corresponding mod.");
+            "点击快捷键输入框后可直接按键录入，支持单键、组合键和符号键；当前窗口聚焦时，按已绑定的快捷键会定位并执行对应 Mod。",
+            "Click a shortcut box and press a key to capture it. Single keys, key combinations, and symbol keys are supported; when this window is focused, the bound shortcut will locate and run the corresponding mod.");
     }
 
     private void ApplyShortcutPlaceholders()
@@ -358,23 +361,26 @@ public sealed partial class MainWindow : Window
 
     private async void OnImportZipClicked(object sender, RoutedEventArgs e)
     {
-        var item = GetSelectedSecondLevelItem();
+        FirstLevelFolderItem? item = FirstLevelListView.SelectedItem as FirstLevelFolderItem;
         if (item is null)
         {
             await ShowMessageAsync(
-                L("请先选择一个第二层 Mod。", "Select a second-level mod first."),
-                L("未选择 Mod", "No mod selected"));
+                L("请先选择一个第一层分类。", "Select a first-level category first."),
+                L("未选择分类", "No category selected"));
             return;
         }
 
         var picker = new FileOpenPicker();
-        picker.FileTypeFilter.Add(".zip");
+        foreach (string extension in SupportedArchiveExtensions)
+        {
+            picker.FileTypeFilter.Add(extension);
+        }
         picker.SuggestedStartLocation = PickerLocationId.Downloads;
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
         StorageFile? file = await picker.PickSingleFileAsync();
         if (file is not null)
         {
-            await ImportZipToFolderAsync(file.Path, item);
+            await ImportArchiveToFirstLevelFolderAsync(file.Path, item);
         }
     }
 
@@ -395,6 +401,11 @@ public sealed partial class MainWindow : Window
     private void OnFirstLevelSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         PopulateSecondLevelList(FirstLevelListView.SelectedItem as FirstLevelFolderItem);
+    }
+
+    private void OnFirstLevelSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplyFirstLevelFilter();
     }
 
     private void OnSecondLevelSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -837,13 +848,13 @@ public sealed partial class MainWindow : Window
         string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
         {
-            StatusTextBlock.Text = L("请先选择有效的主文件夹。", "Choose a valid source folder first.");
+            StatusTextBlock.Text = L("请先选择有效的 Mod 存储文件夹。", "Choose a valid mod storage folder first.");
             return;
         }
 
         if (!string.IsNullOrWhiteSpace(targetDir) && !Directory.Exists(targetDir))
         {
-            StatusTextBlock.Text = L("副文件夹不存在，请重新选择。", "The target folder does not exist. Please choose it again.");
+            StatusTextBlock.Text = L("目标文件夹不存在，请重新选择。", "The target folder does not exist. Please choose it again.");
             return;
         }
 
@@ -851,6 +862,7 @@ public sealed partial class MainWindow : Window
 
         await Task.Run(() =>
         {
+            var loadedItems = new List<FirstLevelFolderItem>();
             string[] firstDirs = Directory.GetDirectories(sourceDir);
             Array.Sort(firstDirs, StringComparer.CurrentCultureIgnoreCase);
 
@@ -869,16 +881,19 @@ public sealed partial class MainWindow : Window
                     secondCount++;
                 }
 
-                DispatcherQueue.TryEnqueue(() => _firstLevelItems.Add(item));
+                loadedItems.Add(item);
             }
 
             DispatcherQueue.TryEnqueue(() =>
             {
-                FirstCountTextBlock.Text = _firstLevelItems.Count.ToString();
+                _allFirstLevelItems.Clear();
+                _allFirstLevelItems.AddRange(loadedItems);
+                ApplyFirstLevelFilter();
+                FirstCountTextBlock.Text = _allFirstLevelItems.Count.ToString();
                 SecondCountTextBlock.Text = secondCount.ToString();
                 StatusTextBlock.Text = L(
-                    $"已加载 {_firstLevelItems.Count} 个第一层目录，{secondCount} 个第二层目录。",
-                    $"Loaded {_firstLevelItems.Count} first-level folders and {secondCount} second-level folders.");
+                    $"已加载 {_allFirstLevelItems.Count} 个第一层目录，{secondCount} 个第二层目录。",
+                    $"Loaded {_allFirstLevelItems.Count} first-level folders and {secondCount} second-level folders.");
                 if (_firstLevelItems.Count > 0)
                 {
                     FirstLevelListView.SelectedIndex = 0;
@@ -978,13 +993,13 @@ public sealed partial class MainWindow : Window
                 UpdateProgress(15, L("正在移除目录...", "Removing folder..."));
                 await Task.Run(() => Directory.Delete(targetPath, true));
                 UpdateProgress(100, L("移除完成", "Removal complete"));
-                StatusTextBlock.Text = item.Name + L(" 已从副文件夹移除。", " was removed from the target folder.");
+                StatusTextBlock.Text = item.Name + L(" 已从目标文件夹移除。", " was removed from the target folder.");
             }
             else
             {
                 var progress = new Progress<ProgressInfo>(info => UpdateProgress(info.Percent, info.Message));
                 await CopyDirectoryWithProgressAsync(item.Path, targetPath, progress);
-                StatusTextBlock.Text = item.Name + L(" 已复制到副文件夹。", " was copied to the target folder.");
+                StatusTextBlock.Text = item.Name + L(" 已复制到目标文件夹。", " was copied to the target folder.");
             }
         }
         catch (Exception ex)
@@ -1001,47 +1016,21 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task ImportZipToFolderAsync(string zipPath, SecondLevelFolderItem item)
+    private async Task ImportArchiveToFirstLevelFolderAsync(string archivePath, FirstLevelFolderItem item)
     {
         SetBusyState(true);
         try
         {
-            await Task.Run(() =>
-            {
-                using ZipArchive archive = ZipFile.OpenRead(zipPath);
-                List<ZipArchiveEntry> entries = archive.Entries
-                    .Where(entry => !string.IsNullOrEmpty(entry.FullName) && !entry.FullName.EndsWith("/", StringComparison.Ordinal))
-                    .ToList();
+            await Task.Run(() => ExtractArchiveToDirectory(archivePath, item.Path));
 
-                if (entries.Count == 0)
-                {
-                    throw new InvalidOperationException(L("这个 ZIP 里没有可解压的文件。", "This ZIP file does not contain extractable files."));
-                }
-
-                for (int index = 0; index < entries.Count; index++)
-                {
-                    ZipArchiveEntry entry = entries[index];
-                    string destinationPath = Path.Combine(item.Path, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
-                    string? destinationDirectory = Path.GetDirectoryName(destinationPath);
-                    if (!string.IsNullOrEmpty(destinationDirectory))
-                    {
-                        Directory.CreateDirectory(destinationDirectory);
-                    }
-
-                    entry.ExtractToFile(destinationPath, true);
-                    int percent = Math.Min(100, (index + 1) * 100 / entries.Count);
-                    DispatcherQueue.TryEnqueue(() => UpdateProgress(percent, L("正在解压文件...", "Extracting files...")));
-                }
-            });
-
-            StatusTextBlock.Text = L($"已将 {Path.GetFileName(zipPath)} 解压到 {item.Name}。", $"Extracted {Path.GetFileName(zipPath)} to {item.Name}.");
+            StatusTextBlock.Text = L($"已将 {Path.GetFileName(archivePath)} 解压到 {item.Name}。", $"Extracted {Path.GetFileName(archivePath)} to {item.Name}.");
             await RefreshListsAsync();
-            SelectSecondLevelByPath(item.Path);
+            SelectFirstLevelByPath(item.Path);
         }
         catch (Exception ex)
         {
             await ShowMessageAsync(
-                L("导入 ZIP 失败：", "ZIP import failed: ") + ex.Message,
+                L("导入压缩文件失败：", "Archive import failed: ") + ex.Message,
                 L("导入失败", "Import failed"));
         }
         finally
@@ -1301,7 +1290,7 @@ public sealed partial class MainWindow : Window
         string targetDir = (TargetTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(targetDir))
         {
-            StatusTextBlock.Text = L("快捷键执行失败：请先设置有效的副文件夹。", "Shortcut failed: choose a valid target folder first.");
+            StatusTextBlock.Text = L("快捷键执行失败：请先设置有效的目标文件夹。", "Shortcut failed: choose a valid target folder first.");
             return;
         }
 
@@ -1393,6 +1382,31 @@ public sealed partial class MainWindow : Window
             return key.ToString();
         }
 
+        if (key is >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9)
+        {
+            return "Num" + ((int)key - (int)VirtualKey.NumberPad0);
+        }
+
+        int keyCode = (int)key;
+        if (keyCode is >= 186 and <= 192 or >= 219 and <= 222)
+        {
+            return keyCode switch
+            {
+                186 => ";",
+                187 => "=",
+                188 => ",",
+                189 => "-",
+                190 => ".",
+                191 => "/",
+                192 => "`",
+                219 => "[",
+                220 => "\\",
+                221 => "]",
+                222 => "'",
+                _ => string.Empty
+            };
+        }
+
         return key switch
         {
             VirtualKey.Enter => "Enter",
@@ -1402,6 +1416,18 @@ public sealed partial class MainWindow : Window
             VirtualKey.Right => "Right",
             VirtualKey.Up => "Up",
             VirtualKey.Down => "Down",
+            VirtualKey.Tab => "Tab",
+            VirtualKey.Home => "Home",
+            VirtualKey.End => "End",
+            VirtualKey.PageUp => "PageUp",
+            VirtualKey.PageDown => "PageDown",
+            VirtualKey.Insert => "Insert",
+            VirtualKey.Delete => "Delete",
+            VirtualKey.Decimal => ".",
+            VirtualKey.Add => "+",
+            VirtualKey.Subtract => "-",
+            VirtualKey.Multiply => "*",
+            VirtualKey.Divide => "/",
             _ => key.ToString()
         };
     }
@@ -1552,6 +1578,114 @@ public sealed partial class MainWindow : Window
         }
 
         return "https://" + trimmed;
+    }
+
+    private void ApplyFirstLevelFilter()
+    {
+        string keyword = (FirstLevelSearchTextBox.Text ?? string.Empty).Trim();
+        string? selectedPath = FirstLevelListView.SelectedItem is FirstLevelFolderItem selected ? selected.Path : null;
+
+        _firstLevelItems.Clear();
+
+        IEnumerable<FirstLevelFolderItem> filtered = string.IsNullOrWhiteSpace(keyword)
+            ? _allFirstLevelItems
+            : _allFirstLevelItems.Where(item =>
+                item.Name.Contains(keyword, StringComparison.CurrentCultureIgnoreCase));
+
+        foreach (FirstLevelFolderItem item in filtered)
+        {
+            _firstLevelItems.Add(item);
+        }
+
+        if (!string.IsNullOrEmpty(selectedPath))
+        {
+            SelectFirstLevelByPath(selectedPath);
+        }
+
+        if (FirstLevelListView.SelectedItem is null && _firstLevelItems.Count > 0)
+        {
+            FirstLevelListView.SelectedIndex = 0;
+        }
+    }
+
+    private void SelectFirstLevelByPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        FirstLevelFolderItem? item = _firstLevelItems.FirstOrDefault(first =>
+            string.Equals(first.Path, path, StringComparison.CurrentCultureIgnoreCase));
+        if (item is not null)
+        {
+            FirstLevelListView.SelectedItem = item;
+        }
+    }
+
+    private void ExtractArchiveToDirectory(string archivePath, string destinationDirectory)
+    {
+        string extension = Path.GetExtension(archivePath).ToLowerInvariant();
+        DispatcherQueue.TryEnqueue(() => UpdateProgress(10, L("正在准备解压...", "Preparing extraction...")));
+
+        if (extension == ".zip")
+        {
+            using ZipArchive archive = ZipFile.OpenRead(archivePath);
+            List<ZipArchiveEntry> entries = archive.Entries
+                .Where(entry => !string.IsNullOrEmpty(entry.FullName) && !entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                .ToList();
+
+            if (entries.Count == 0)
+            {
+                throw new InvalidOperationException(L("这个压缩包里没有可解压的文件。", "This archive does not contain extractable files."));
+            }
+
+            for (int index = 0; index < entries.Count; index++)
+            {
+                ZipArchiveEntry entry = entries[index];
+                string destinationPath = Path.Combine(destinationDirectory, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
+                string? destinationFolder = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrEmpty(destinationFolder))
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                }
+
+                entry.ExtractToFile(destinationPath, true);
+                int percent = Math.Min(95, 10 + ((index + 1) * 85 / entries.Count));
+                DispatcherQueue.TryEnqueue(() => UpdateProgress(percent, L("正在解压文件...", "Extracting files...")));
+            }
+
+            DispatcherQueue.TryEnqueue(() => UpdateProgress(100, L("解压完成", "Extraction complete")));
+            return;
+        }
+
+        RunTarExtraction(archivePath, destinationDirectory);
+        DispatcherQueue.TryEnqueue(() => UpdateProgress(100, L("解压完成", "Extraction complete")));
+    }
+
+    private void RunTarExtraction(string archivePath, string destinationDirectory)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "tar.exe",
+            Arguments = $"-xf \"{archivePath}\" -C \"{destinationDirectory}\"",
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true
+        };
+
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException(L("无法启动系统解压工具 tar.exe。", "Unable to start tar.exe."));
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(error)
+                ? L("当前系统无法解压该格式，建议尝试 ZIP 或 7Z。", "This system could not extract the selected format. Try ZIP or 7Z instead.")
+                : error.Trim());
+        }
     }
 
     private async Task ShowMessageAsync(string content, string title)

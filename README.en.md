@@ -1,6 +1,6 @@
 [中文](./README.md) | [English](./README.en.md)
 
-# Mod Folder Copier WinUI 3 v2.2.3
+# Mod Folder Copier WinUI 3 v2.2.4
 
 > Non-official notice:  
 > This project is an unofficial fan-made tool. It is not affiliated with, endorsed by, or sponsored by XXMI, any game publisher, or any related developers.
@@ -9,8 +9,8 @@ This is a WinUI 3 desktop tool for Windows that helps manage two-level mod folde
 
 Current version:
 
-- Display version: `v2.2.3`
-- File version: `2.2.3.0`
+- Display version: `v2.2.4`
+- File version: `2.2.4.0`
 
 ## 1. Main Features
 

@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:ModFolderCopier.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="Mod Folder Copier v2.2"
+    Title="Mod Folder Copier v2.2.4"
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid" Background="{ThemeResource AppPageBackgroundBrush}" KeyDown="OnRootKeyDown">
@@ -194,11 +194,19 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <TextBlock x:Name="FirstLevelSectionTitleTextBlock" Style="{StaticResource SectionTitleTextStyle}" />
                             <TextBlock x:Name="FirstLevelSectionSubtitleTextBlock" Grid.Row="1" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
                             <Border Grid.Row="2" Style="{StaticResource InsetBorderStyle}">
+                                <TextBox
+                                    x:Name="FirstLevelSearchTextBox"
+                                    Padding="12,8"
+                                    BorderThickness="0"
+                                    TextChanged="OnFirstLevelSearchTextChanged" />
+                            </Border>
+                            <Border Grid.Row="3" Style="{StaticResource InsetBorderStyle}">
                                 <ListView x:Name="FirstLevelListView" SelectionChanged="OnFirstLevelSelectionChanged" Style="{StaticResource AppListViewStyle}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="local:FirstLevelFolderItem">
