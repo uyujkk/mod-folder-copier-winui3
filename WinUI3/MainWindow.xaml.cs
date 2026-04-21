@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -20,7 +21,7 @@ namespace ModFolderCopier.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private const string AppVersion = "v2.2.4";
+    private const string AppVersion = "v2.2.6";
     private const int MaxShortcutRows = 10;
     private static readonly string[] SupportedArchiveExtensions = [".zip", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz"];
 
@@ -134,8 +135,11 @@ public sealed partial class MainWindow : Window
         FirstLevelSectionTitleTextBlock.Text = L("第一层文件夹", "First-level folders");
         FirstLevelSectionSubtitleTextBlock.Text = L("先选择分类目录", "Choose a category folder first");
         FirstLevelSearchTextBox.PlaceholderText = L("搜索第一层文件夹", "Search first-level folders");
+        CreateFirstLevelButton.Content = L("新建第一层文件夹", "New Folder");
+        RenameFirstLevelButton.Content = L("重命名当前第一层", "Rename");
         SecondLevelSectionTitleTextBlock.Text = L("第二层文件夹", "Second-level folders");
         SecondLevelSectionSubtitleTextBlock.Text = L("再选择具体 Mod", "Then choose a specific mod");
+        DeleteSecondLevelButton.Content = L("删除当前第二层 Mod", "Delete Mod");
 
         ShortcutSectionTitleTextBlock.Text = L("快捷键与功能", "Shortcut Notes");
         ShortcutSectionSubtitleTextBlock.Text = L("当前选中 Mod 的快捷键说明", "Shortcut notes for the selected mod");
@@ -169,6 +173,7 @@ public sealed partial class MainWindow : Window
         UpdateLinkButtonState();
         RefreshLocalizedStates();
         ApplyTextOverrides();
+        ApplyActionButtonPresentation();
 
         if (FirstLevelListView.SelectedItem is FirstLevelFolderItem firstItem)
         {
@@ -210,6 +215,25 @@ public sealed partial class MainWindow : Window
         ShortcutHintTextBlock.Text = L(
             "点击快捷键输入框后可直接按键录入，支持单键、组合键和符号键；当前窗口聚焦时，按已绑定的快捷键会定位并执行对应 Mod。",
             "Click a shortcut box and press a key to capture it. Single keys, key combinations, and symbol keys are supported; when this window is focused, the bound shortcut will locate and run the corresponding mod.");
+    }
+
+    private void ApplyActionButtonPresentation()
+    {
+        CreateFirstLevelButton.Content = new FontIcon { Glyph = "\uE710", FontSize = 16 };
+        RenameFirstLevelButton.Content = new FontIcon { Glyph = "\uE70F", FontSize = 16 };
+        DeleteSecondLevelButton.Content = new FontIcon { Glyph = "\uE74D", FontSize = 16 };
+
+        string createTip = L("新建第一层文件夹", "Create first-level folder");
+        string renameTip = L("重命名当前第一层", "Rename first-level folder");
+        string deleteTip = L("删除当前第二层 Mod", "Delete selected mod");
+
+        ToolTipService.SetToolTip(CreateFirstLevelButton, createTip);
+        ToolTipService.SetToolTip(RenameFirstLevelButton, renameTip);
+        ToolTipService.SetToolTip(DeleteSecondLevelButton, deleteTip);
+
+        AutomationProperties.SetName(CreateFirstLevelButton, createTip);
+        AutomationProperties.SetName(RenameFirstLevelButton, renameTip);
+        AutomationProperties.SetName(DeleteSecondLevelButton, deleteTip);
     }
 
     private void ApplyShortcutPlaceholders()
@@ -408,6 +432,106 @@ public sealed partial class MainWindow : Window
         ApplyFirstLevelFilter();
     }
 
+    private async void OnCreateFirstLevelClicked(object sender, RoutedEventArgs e)
+    {
+        string sourceDir = (SourceTextBox.Text ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
+        {
+            await ShowMessageAsync(
+                L("请先设置有效的 Mod 存储文件夹。", "Set a valid mod storage folder first."),
+                L("路径无效", "Invalid path"));
+            return;
+        }
+
+        string? name = await PromptForTextAsync(
+            L("请输入新的第一层文件夹名称。", "Enter the new first-level folder name."),
+            L("新建第一层文件夹", "Create first-level folder"),
+            string.Empty);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        try
+        {
+            string targetPath = Path.Combine(sourceDir, name.Trim());
+            if (Directory.Exists(targetPath))
+            {
+                await ShowMessageAsync(
+                    L("同名第一层文件夹已存在。", "A first-level folder with the same name already exists."),
+                    L("创建失败", "Create failed"));
+                return;
+            }
+
+            Directory.CreateDirectory(targetPath);
+            await RefreshListsAsync();
+            SelectFirstLevelByPath(targetPath);
+            StatusTextBlock.Text = L($"已创建第一层文件夹：{name.Trim()}", $"Created first-level folder: {name.Trim()}");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(
+                L("创建第一层文件夹失败：", "Failed to create the first-level folder: ") + ex.Message,
+                L("创建失败", "Create failed"));
+        }
+    }
+
+    private async void OnRenameFirstLevelClicked(object sender, RoutedEventArgs e)
+    {
+        FirstLevelFolderItem? item = FirstLevelListView.SelectedItem as FirstLevelFolderItem;
+        if (item is null)
+        {
+            await ShowMessageAsync(
+                L("请先选择一个第一层文件夹。", "Select a first-level folder first."),
+                L("未选择文件夹", "No folder selected"));
+            return;
+        }
+
+        string? name = await PromptForTextAsync(
+            L("请输入新的第一层文件夹名称。", "Enter the new first-level folder name."),
+            L("重命名第一层文件夹", "Rename first-level folder"),
+            item.Name);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        string trimmed = name.Trim();
+        if (string.Equals(trimmed, item.Name, StringComparison.CurrentCulture))
+        {
+            return;
+        }
+
+        try
+        {
+            string? parentDir = Path.GetDirectoryName(item.Path);
+            if (string.IsNullOrWhiteSpace(parentDir))
+            {
+                throw new InvalidOperationException(L("无法确定父目录。", "Could not determine the parent directory."));
+            }
+
+            string newPath = Path.Combine(parentDir, trimmed);
+            if (Directory.Exists(newPath))
+            {
+                await ShowMessageAsync(
+                    L("目标名称已存在，请换一个名称。", "The target name already exists. Choose a different name."),
+                    L("重命名失败", "Rename failed"));
+                return;
+            }
+
+            Directory.Move(item.Path, newPath);
+            await RefreshListsAsync();
+            SelectFirstLevelByPath(newPath);
+            StatusTextBlock.Text = L($"已重命名第一层文件夹为：{trimmed}", $"Renamed first-level folder to: {trimmed}");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(
+                L("重命名第一层文件夹失败：", "Failed to rename the first-level folder: ") + ex.Message,
+                L("重命名失败", "Rename failed"));
+        }
+    }
+
     private void OnSecondLevelSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         var item = GetSelectedSecondLevelItem();
@@ -423,6 +547,42 @@ public sealed partial class MainWindow : Window
         if (item is not null)
         {
             await ToggleDirectoryCopyAsync(item);
+        }
+    }
+
+    private async void OnDeleteSecondLevelClicked(object sender, RoutedEventArgs e)
+    {
+        SecondLevelFolderItem? item = GetSelectedSecondLevelItem();
+        if (item is null)
+        {
+            await ShowMessageAsync(
+                L("请先选择一个第二层 Mod。", "Select a second-level mod first."),
+                L("未选择 Mod", "No mod selected"));
+            return;
+        }
+
+        bool confirmed = await ShowConfirmAsync(
+            L($"确定要删除这个第二层 Mod 吗？\n\n{item.Name}\n\n此操作会删除原始文件夹，无法撤销。",
+              $"Are you sure you want to delete this second-level mod?\n\n{item.Name}\n\nThis will delete the original folder and cannot be undone."),
+            L("确认删除", "Confirm delete"));
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            string selectedFirstLevelPath = (FirstLevelListView.SelectedItem as FirstLevelFolderItem)?.Path ?? string.Empty;
+            Directory.Delete(item.Path, true);
+            await RefreshListsAsync();
+            SelectFirstLevelByPath(selectedFirstLevelPath);
+            StatusTextBlock.Text = L($"已删除第二层 Mod：{item.Name}", $"Deleted second-level mod: {item.Name}");
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(
+                L("删除第二层 Mod 失败：", "Failed to delete the second-level mod: ") + ex.Message,
+                L("删除失败", "Delete failed"));
         }
     }
 
@@ -1699,6 +1859,56 @@ public sealed partial class MainWindow : Window
         };
 
         await dialog.ShowAsync();
+    }
+
+    private async Task<string?> PromptForTextAsync(string content, string title, string defaultValue)
+    {
+        var textBox = new TextBox
+        {
+            Text = defaultValue,
+            PlaceholderText = L("输入名称", "Enter a name"),
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = content,
+            TextWrapping = TextWrapping.Wrap
+        });
+        panel.Children.Add(textBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = panel,
+            PrimaryButtonText = L("确定", "OK"),
+            CloseButtonText = L("取消", "Cancel"),
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = RootGrid.XamlRoot
+        };
+
+        ContentDialogResult result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary ? textBox.Text : null;
+    }
+
+    private async Task<bool> ShowConfirmAsync(string content, string title)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = new TextBlock
+            {
+                Text = content,
+                TextWrapping = TextWrapping.Wrap
+            },
+            PrimaryButtonText = L("确认", "Confirm"),
+            CloseButtonText = L("取消", "Cancel"),
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = RootGrid.XamlRoot
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 }
 
