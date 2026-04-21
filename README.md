@@ -1,3 +1,5 @@
+# [中文](./README.md) | [English](./README.en.md)
+
 # Mod 文件复制器 WinUI 3 版 v2.2.3
 
 > Non-official notice:  
