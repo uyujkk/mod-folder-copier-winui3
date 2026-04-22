@@ -5,10 +5,10 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:ModFolderCopier.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="Mod Folder Copier v2.2.6"
+    Title="Mod Folder Copier v2.2.8"
     mc:Ignorable="d">
 
-    <Grid x:Name="RootGrid" Background="{ThemeResource AppPageBackgroundBrush}" KeyDown="OnRootKeyDown">
+    <Grid x:Name="RootGrid" Background="{ThemeResource AppPageBackgroundBrush}" KeyDown="OnRootKeyDown" PointerPressed="OnRootGridPointerPressed">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24" Spacing="18">
                 <Border Style="{StaticResource CardBorderStyle}">
@@ -142,9 +142,9 @@
 
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="360" />
+                        <ColumnDefinition Width="340" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
@@ -281,7 +281,13 @@
                                 </Button>
                             </Grid>
                             <TextBlock x:Name="SecondLevelSectionSubtitleTextBlock" Grid.Row="1" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" />
-                            <Border Grid.Row="2" Style="{StaticResource InsetBorderStyle}">
+                            <Border
+                                x:Name="SecondLevelDropBorder"
+                                Grid.Row="2"
+                                AllowDrop="True"
+                                Style="{StaticResource InsetBorderStyle}"
+                                DragOver="OnSecondLevelDragOver"
+                                Drop="OnSecondLevelDrop">
                                 <ListView x:Name="SecondLevelListView" SelectionChanged="OnSecondLevelSelectionChanged" DoubleTapped="OnSecondLevelDoubleTapped" Style="{StaticResource AppListViewStyle}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="local:SecondLevelFolderItem">

@@ -4,15 +4,24 @@ setlocal
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 
-set "MSBUILD=C:\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
-set "CSC=C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+set "DOTNET=%ProgramFiles%\dotnet\x64\dotnet.exe"
+if not exist "%DOTNET%" set "DOTNET=%ProgramFiles%\dotnet\dotnet.exe"
+
+set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if not exist "%CSC%" set "CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+
 set "PROJECT=%ROOT%\WinUI3\ModFolderCopier.WinUI.csproj"
 set "SOURCE=%ROOT%\WinUI3\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64"
 set "OUTPUT=%ROOT%\dist\WinUI3"
 set "LAUNCHER_SOURCE=%ROOT%\WinUILauncher.cs"
 set "LAUNCHER_OUTPUT=%ROOT%\dist\ModFolderCopier.exe"
 
-"%MSBUILD%" "%PROJECT%" /restore /t:Build /p:Configuration=Release /p:Platform=x64 || exit /b 1
+if not exist "%DOTNET%" (
+  echo dotnet SDK not found.
+  exit /b 1
+)
+
+"%DOTNET%" build "%PROJECT%" -c Release -p:Platform=x64 || exit /b 1
 
 if not exist "%ROOT%\dist" mkdir "%ROOT%\dist"
 if not exist "%OUTPUT%" mkdir "%OUTPUT%"

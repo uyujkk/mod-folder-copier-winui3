@@ -21,7 +21,7 @@ namespace ModFolderCopier.WinUI;
 
 public sealed partial class MainWindow : Window
 {
-    private const string AppVersion = "v2.2.6";
+    private const string AppVersion = "v2.2.8";
     private const int MaxShortcutRows = 10;
     private static readonly string[] SupportedArchiveExtensions = [".zip", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz"];
 
@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<FirstLevelFolderItem> _firstLevelItems = [];
     private readonly ObservableCollection<SecondLevelFolderItem> _secondLevelItems = [];
     private readonly List<FirstLevelFolderItem> _allFirstLevelItems = [];
+    private readonly List<Border> _shortcutKeyBorders = [];
     private readonly List<TextBox> _shortcutKeyBoxes = [];
     private readonly List<TextBox> _shortcutActionBoxes = [];
     private readonly Dictionary<string, List<ShortcutBinding>> _modBindings = new(StringComparer.CurrentCultureIgnoreCase);
@@ -49,6 +50,7 @@ public sealed partial class MainWindow : Window
     private bool _isLoadingBindings;
     private bool _isLoadingModLink;
     private int _visibleShortcutRows = 1;
+    private TextBox? _activeShortcutKeyBox;
     private string? _currentSecondLevelPath;
     private AppLanguage _currentLanguage = AppLanguage.ZhCn;
 
@@ -119,7 +121,7 @@ public sealed partial class MainWindow : Window
             "支持刷新目录、导入 ZIP、复制当前第二层文件夹，以及直接运行外部启动器。",
             "Refresh folders, import ZIP files, copy the selected second-level folder, or run the external launcher.");
         RefreshButton.Content = L("刷新目录", "Refresh");
-        ImportZipButton.Content = L("导入压缩文件到当前第一层", "Import Archive");
+        ImportZipButton.Content = L("导入到当前选中文件夹", "Import To Selected Folder");
         RunLauncherButton.Content = L("运行启动器", "Run Launcher");
         ToggleCopyButton.Content = L("复制当前第二层文件夹", "Copy Selected Mod");
 
@@ -207,6 +209,7 @@ public sealed partial class MainWindow : Window
         PathHintTextBlock.Text = L(
             "可以刷新目录、导入 ZIP、将当前第二层 Mod 复制到目标文件夹，也可以直接运行外部启动器。",
             "Refresh folders, import ZIP files, copy the selected second-level mod into the target folder, or run the external launcher.");
+        ImportZipButton.Content = L("导入到当前选中文件夹", "Import To Selected Folder");
 
         FirstCountHintTextBlock.Text = L("当前 Mod 存储文件夹下的分类数量", "Number of categories in the mod storage folder");
 
@@ -259,6 +262,7 @@ public sealed partial class MainWindow : Window
     private void BuildShortcutRows()
     {
         ShortcutRowsPanel.Children.Clear();
+        _shortcutKeyBorders.Clear();
         _shortcutKeyBoxes.Clear();
         _shortcutActionBoxes.Clear();
 
@@ -272,19 +276,21 @@ public sealed partial class MainWindow : Window
             var keyBox = new TextBox
             {
                 IsReadOnly = true,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(10, 8, 10, 8)
+                Style = (Style)Application.Current.Resources["ShortcutInputTextBoxStyle"]
             };
+            ConfigureShortcutTextBoxTheme(keyBox);
             keyBox.TextChanged += OnShortcutTextChanged;
             keyBox.KeyDown += OnShortcutKeyBoxKeyDown;
+            keyBox.GotFocus += OnShortcutKeyBoxGotFocus;
+            keyBox.LostFocus += OnShortcutKeyBoxLostFocus;
             keyBorder.Child = keyBox;
 
             var actionBorder = CreateInsetBorder();
             var actionBox = new TextBox
             {
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(10, 8, 10, 8)
+                Style = (Style)Application.Current.Resources["ShortcutInputTextBoxStyle"]
             };
+            ConfigureShortcutTextBoxTheme(actionBox);
             actionBox.TextChanged += OnShortcutTextChanged;
             actionBorder.Child = actionBox;
 
@@ -294,24 +300,77 @@ public sealed partial class MainWindow : Window
             rowGrid.Children.Add(actionBorder);
 
             ShortcutRowsPanel.Children.Add(rowGrid);
+            _shortcutKeyBorders.Add(keyBorder);
             _shortcutKeyBoxes.Add(keyBox);
             _shortcutActionBoxes.Add(actionBox);
         }
 
         ApplyShortcutPlaceholders();
         UpdateShortcutRowVisibility();
+        UpdateShortcutKeyFocusVisuals();
     }
 
     private static Border CreateInsetBorder()
     {
         return new Border
         {
-            CornerRadius = new CornerRadius(12),
-            BorderThickness = new Thickness(1),
-            Background = (Brush)Application.Current.Resources["AppInsetBackgroundBrush"],
-            BorderBrush = (Brush)Application.Current.Resources["AppCardBorderBrush"]
+            Style = (Style)Application.Current.Resources["InsetBorderStyle"]
         };
     }
+
+    private static void ConfigureShortcutTextBoxTheme(TextBox box)
+    {
+        var transparentBrush = new SolidColorBrush(Colors.Transparent);
+        box.Resources["TextControlBackground"] = transparentBrush;
+        box.Resources["TextControlBackgroundFocused"] = transparentBrush;
+        box.Resources["TextControlBackgroundPointerOver"] = transparentBrush;
+        box.Resources["TextControlBackgroundDisabled"] = transparentBrush;
+        box.Resources["TextControlBackgroundReadOnly"] = transparentBrush;
+        box.Resources["TextControlBorderBrush"] = transparentBrush;
+        box.Resources["TextControlBorderBrushFocused"] = transparentBrush;
+        box.Resources["TextControlBorderBrushPointerOver"] = transparentBrush;
+        box.Resources["TextControlBorderBrushDisabled"] = transparentBrush;
+        box.Resources["TextControlBorderBrushReadOnly"] = transparentBrush;
+        box.Resources["TextControlForegroundReadOnly"] = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+    }
+
+    private void OnShortcutKeyBoxGotFocus(object sender, RoutedEventArgs e)
+    {
+        _activeShortcutKeyBox = sender as TextBox;
+        UpdateShortcutKeyFocusVisuals();
+    }
+
+    private void OnShortcutKeyBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (ReferenceEquals(_activeShortcutKeyBox, sender))
+        {
+            _activeShortcutKeyBox = null;
+        }
+
+        UpdateShortcutKeyFocusVisuals();
+    }
+
+    private void UpdateShortcutKeyFocusVisuals()
+    {
+        Brush normalBackground = (Brush)Application.Current.Resources["AppInsetBackgroundBrush"];
+        Brush normalBorder = (Brush)Application.Current.Resources["AppCardBorderBrush"];
+        Brush activeBackground = (Brush)Application.Current.Resources["AppAccentSoftBrush"];
+        Brush activeBorder = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
+        object? focusedElement = Content is FrameworkElement root && root.XamlRoot is not null
+            ? FocusManager.GetFocusedElement(root.XamlRoot)
+            : null;
+
+        for (int i = 0; i < _shortcutKeyBorders.Count; i++)
+        {
+            bool isActive = i < _shortcutKeyBoxes.Count &&
+                ReferenceEquals(_shortcutKeyBoxes[i], _activeShortcutKeyBox) &&
+                ReferenceEquals(_shortcutKeyBoxes[i], focusedElement);
+            _shortcutKeyBorders[i].Background = isActive ? activeBackground : normalBackground;
+            _shortcutKeyBorders[i].BorderBrush = isActive ? activeBorder : normalBorder;
+            _shortcutKeyBorders[i].BorderThickness = isActive ? new Thickness(2) : new Thickness(1);
+        }
+    }
+
 
     private async void OnPickSourceClicked(object sender, RoutedEventArgs e)
     {
@@ -404,7 +463,7 @@ public sealed partial class MainWindow : Window
         StorageFile? file = await picker.PickSingleFileAsync();
         if (file is not null)
         {
-            await ImportArchiveToFirstLevelFolderAsync(file.Path, item);
+            await ImportArchiveToSelectedFirstLevelFolderAsync(file.Path, item);
         }
     }
 
@@ -744,6 +803,56 @@ public sealed partial class MainWindow : Window
         await ImportPreviewImageAsync(imageFile.Path, item);
     }
 
+    private void OnSecondLevelDragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = DataPackageOperation.None;
+
+        if (FirstLevelListView.SelectedItem is null)
+        {
+            return;
+        }
+
+        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.Copy;
+        }
+    }
+
+    private async void OnSecondLevelDrop(object sender, DragEventArgs e)
+    {
+        FirstLevelFolderItem? item = FirstLevelListView.SelectedItem as FirstLevelFolderItem;
+        if (item is null)
+        {
+            await ShowMessageAsync(
+                L("璇峰厛閫夋嫨涓€涓涓€灞傚垎绫伙紝鍐嶆妸鍘嬬缉鍖呮嫋鍒拌繖閲屻€?", "Select a first-level category before dropping an archive here."),
+                L("鏈€夋嫨鍒嗙被", "No category selected"));
+            return;
+        }
+
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            await ShowMessageAsync(
+                L("鍙敮鎸佷粠璧勬簮绠＄悊鍣ㄦ嫋鍏ュ帇缂╂枃浠躲€?", "Only archive files dragged from File Explorer are supported here."),
+                L("涓嶆敮鎸佺殑鎷栨斁鍐呭", "Unsupported drop content"));
+            return;
+        }
+
+        IReadOnlyList<IStorageItem> droppedItems = await e.DataView.GetStorageItemsAsync();
+        StorageFile? archiveFile = droppedItems
+            .OfType<StorageFile>()
+            .FirstOrDefault(file => IsSupportedArchiveFile(file.Path));
+
+        if (archiveFile is null)
+        {
+            await ShowMessageAsync(
+                L("娌℃湁妫€娴嬪埌鏀寔鐨勫帇缂╂枃浠躲€?", "No supported archive file was detected."),
+                L("鏈壘鍒板帇缂╂枃浠?", "No archive found"));
+            return;
+        }
+
+        await ImportArchiveToSecondLevelFolderAsync(archiveFile.Path, item);
+    }
+
     private async void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox)
@@ -776,12 +885,39 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnRootGridPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (IsPointerInsideTextInput(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        RootGrid.Focus(FocusState.Programmatic);
+    }
+
+    private static bool IsPointerInsideTextInput(DependencyObject? source)
+    {
+        DependencyObject? current = source;
+        while (current is not null)
+        {
+            if (current is TextBox)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
     private void ApplyTheme(bool dark)
     {
         _isDarkTheme = dark;
         RootGrid.RequestedTheme = dark ? ElementTheme.Dark : ElementTheme.Light;
         ThemeToggleButton.Content = dark ? L("切换浅色", "Light theme") : L("切换深色", "Dark theme");
         SetStateColor(CurrentStateTextBlock.Text);
+        UpdateShortcutKeyFocusVisuals();
     }
 
     private async Task<string?> PickFolderAsync()
@@ -1176,16 +1312,17 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async Task ImportArchiveToFirstLevelFolderAsync(string archivePath, FirstLevelFolderItem item)
+    private async Task ImportArchiveToSecondLevelFolderAsync(string archivePath, FirstLevelFolderItem item)
     {
         SetBusyState(true);
         try
         {
-            await Task.Run(() => ExtractArchiveToDirectory(archivePath, item.Path));
+            string importedPath = await Task.Run(() => ImportArchiveContents(archivePath, item.Path));
 
             StatusTextBlock.Text = L($"已将 {Path.GetFileName(archivePath)} 解压到 {item.Name}。", $"Extracted {Path.GetFileName(archivePath)} to {item.Name}.");
             await RefreshListsAsync();
             SelectFirstLevelByPath(item.Path);
+            SelectSecondLevelByPath(importedPath);
         }
         catch (Exception ex)
         {
@@ -1300,6 +1437,7 @@ public sealed partial class MainWindow : Window
     private void LoadDefaultShortcutTemplate()
     {
         _isLoadingBindings = true;
+        _activeShortcutKeyBox = null;
         foreach (TextBox box in _shortcutKeyBoxes)
         {
             box.Text = string.Empty;
@@ -1312,12 +1450,14 @@ public sealed partial class MainWindow : Window
 
         _visibleShortcutRows = 1;
         UpdateShortcutRowVisibility();
+        UpdateShortcutKeyFocusVisuals();
         _isLoadingBindings = false;
     }
 
     private void LoadBindingsForCurrentMod(SecondLevelFolderItem? item)
     {
         _isLoadingBindings = true;
+        _activeShortcutKeyBox = null;
 
         foreach (TextBox box in _shortcutKeyBoxes)
         {
@@ -1344,6 +1484,7 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateShortcutRowVisibility();
+        UpdateShortcutKeyFocusVisuals();
         _isLoadingBindings = false;
     }
 
@@ -1728,6 +1869,13 @@ public sealed partial class MainWindow : Window
         return !string.IsNullOrEmpty(extension) && ImageExtensions.Contains(extension.ToLowerInvariant());
     }
 
+    private static bool IsSupportedArchiveFile(string path)
+    {
+        string fileName = Path.GetFileName(path);
+        return SupportedArchiveExtensions.Any(extension =>
+            fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string NormalizeLink(string link)
     {
         string trimmed = link.Trim();
@@ -1781,6 +1929,110 @@ public sealed partial class MainWindow : Window
         {
             FirstLevelListView.SelectedItem = item;
         }
+    }
+
+    private async Task ImportArchiveToSelectedFirstLevelFolderAsync(string archivePath, FirstLevelFolderItem item)
+    {
+        SetBusyState(true);
+        try
+        {
+            await Task.Run(() => ExtractArchiveToDirectory(archivePath, item.Path));
+
+            StatusTextBlock.Text = L($"已将 {Path.GetFileName(archivePath)} 导入到 {item.Name}。", $"Imported {Path.GetFileName(archivePath)} into {item.Name}.");
+            await RefreshListsAsync();
+            SelectFirstLevelByPath(item.Path);
+        }
+        catch (Exception ex)
+        {
+            await ShowMessageAsync(
+                L("导入压缩文件失败：", "Archive import failed: ") + ex.Message,
+                L("导入失败", "Import failed"));
+        }
+        finally
+        {
+            SetBusyState(false);
+        }
+    }
+
+    private string ImportArchiveContents(string archivePath, string firstLevelDirectory)
+    {
+        string tempDirectory = Path.Combine(Path.GetTempPath(), "ModFolderCopier_Import_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            ExtractArchiveToDirectory(archivePath, tempDirectory);
+
+            string[] rootDirectories = Directory.GetDirectories(tempDirectory);
+            string[] rootFiles = Directory.GetFiles(tempDirectory);
+
+            if (rootFiles.Length == 0 && rootDirectories.Length == 1)
+            {
+                string sourceDirectory = rootDirectories[0];
+                string destinationPath = Path.Combine(firstLevelDirectory, Path.GetFileName(sourceDirectory));
+                EnsureImportDestinationDoesNotExist(destinationPath);
+                Directory.Move(sourceDirectory, destinationPath);
+                return destinationPath;
+            }
+
+            string importedDirectory = Path.Combine(firstLevelDirectory, BuildImportedFolderName(archivePath));
+            EnsureImportDestinationDoesNotExist(importedDirectory);
+            Directory.CreateDirectory(importedDirectory);
+
+            foreach (string directory in rootDirectories)
+            {
+                Directory.Move(directory, Path.Combine(importedDirectory, Path.GetFileName(directory)));
+            }
+
+            foreach (string file in rootFiles)
+            {
+                File.Move(file, Path.Combine(importedDirectory, Path.GetFileName(file)));
+            }
+
+            return importedDirectory;
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, true);
+            }
+        }
+    }
+
+    private static void EnsureImportDestinationDoesNotExist(string destinationPath)
+    {
+        if (Directory.Exists(destinationPath) || File.Exists(destinationPath))
+        {
+            throw new InvalidOperationException($"\"{Path.GetFileName(destinationPath)}\" already exists.");
+        }
+    }
+
+    private static string BuildImportedFolderName(string archivePath)
+    {
+        string fileName = Path.GetFileName(archivePath);
+
+        foreach (string extension in SupportedArchiveExtensions.OrderByDescending(item => item.Length))
+        {
+            if (fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                fileName = fileName[..^extension.Length];
+                break;
+            }
+        }
+
+        if (fileName.EndsWith(".tar", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = fileName[..^4];
+        }
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        {
+            fileName = fileName.Replace(invalidChar, '_');
+        }
+
+        fileName = fileName.Trim();
+        return string.IsNullOrWhiteSpace(fileName) ? "ImportedMod" : fileName;
     }
 
     private void ExtractArchiveToDirectory(string archivePath, string destinationDirectory)

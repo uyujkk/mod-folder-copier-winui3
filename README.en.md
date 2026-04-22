@@ -1,6 +1,6 @@
 [中文](./README.md) | [English](./README.en.md)
 
-# Mod Folder Copier WinUI 3 v2.2.6
+# Mod Folder Copier WinUI 3 v2.2.8
 
 > Non-official notice:
 > This project is an unofficial fan-made tool. It is not affiliated with, endorsed by, or sponsored by XXMI, any game publisher, or any related developers.
@@ -9,8 +9,8 @@ This is a WinUI 3 desktop tool for Windows that helps manage two-level mod folde
 
 Current version:
 
-- Display version: `v2.2.6`
-- File version: `2.2.6.0`
+- Display version: `v2.2.8`
+- File version: `2.2.8.0`
 
 ## Main Features
 
@@ -27,13 +27,13 @@ Current version:
 - Support light / dark theme switching
 - Support Chinese / English UI switching
 
-## What's New In v2.2.6
+## What's New In v2.2.8
 
-- Moved the first-level `New` and `Rename` actions to compact icon buttons in the top-right corner
-- Moved the second-level `Delete Mod` action to a compact icon button in the top-right corner
-- Refined the header and action layout for a cleaner, tighter module design
-- Added hover tooltips for the icon buttons
-- Added accessibility names for the icon buttons
+- Renamed the top archive import action to `Import To Selected Folder`
+- Kept archive import targeted at the currently selected first-level folder
+- Preserved drag-and-drop archive extraction in the second-level area for faster mod importing
+- Added click-outside focus clearing so text inputs can exit caret and selection state more naturally
+- Refined shortcut field highlighting so only the currently selected shortcut box is highlighted
 
 ## Recommended Folder Structure
 
