@@ -1,19 +1,21 @@
 [中文](./README.md) | [English](./README.en.md)
 
-# Mod Folder Copier WinUI 3 v2.2.8
+# Integrated Mod Manager v3.0
 
 > Non-official notice:
 > This project is an unofficial fan-made tool. It is not affiliated with, endorsed by, or sponsored by XXMI, any game publisher, or any related developers.
 
-This is a WinUI 3 desktop tool for Windows that helps manage two-level mod folders, copy or remove second-level mods, import archive files, record per-mod shortcut notes and descriptions, set preview images, bind mod links, and quickly launch an external launcher.
+This is a WinUI 3 desktop tool for Windows that helps manage multi-repository mod workspaces, operate on two-level mod folders, import archive files, record per-mod shortcut notes and descriptions, set preview images, bind mod links, and add online mod browsing, download, and update tracking workflows.
 
 Current version:
 
-- Display version: `v2.2.8`
-- File version: `2.2.8.0`
+- Display version: `v3.0`
+- File version: `3.0.0.0`
 
 ## Main Features
 
+- Support multiple repository workspaces, each with its own mod source path, target path, and launcher path
+- Provide a dashboard for repository overview, path status, and basic statistics
 - Browse first-level and second-level folders inside the mod storage folder
 - Show a preview image for the selected second-level mod
 - Double-click a second-level mod or use the action button to copy or remove it
@@ -24,16 +26,20 @@ Current version:
 - Drag and drop an image into the preview area to set the current mod preview
 - Bind a dedicated link for each mod and open it in the default browser
 - Configure and launch an external launcher
+- Browse online mods, paginate, filter, open details, download, and extract
+- Record source links, remote IDs, preview images, and update timestamps for online-installed mods
+- Check tracked mod updates manually or on a schedule
 - Support light / dark theme switching
 - Support Chinese / English UI switching
 
-## What's New In v2.2.8
+## What's New In v3.0
 
-- Renamed the top archive import action to `Import To Selected Folder`
-- Kept archive import targeted at the currently selected first-level folder
-- Preserved drag-and-drop archive extraction in the second-level area for faster mod importing
-- Added click-outside focus clearing so text inputs can exit caret and selection state more naturally
-- Refined shortcut field highlighting so only the currently selected shortcut box is highlighted
+- Introduced a multi-repository workspace architecture with create, edit, rename, delete, and switch actions
+- Added a complete navigation shell with Dashboard, Repository, Online, Updates, and Settings views
+- Connected the online mod page to GameBanana category browsing, paging, filtering, detail preview, download, and extraction
+- Added source-link, remote-ID, preview-image, and update-time tracking after online installation
+- Enabled the mod updates module with manual checks and configurable check frequency
+- Completed a round of Chinese UI cleanup and mojibake fixes across the main interface, dialogs, and status text
 
 ## Recommended Folder Structure
 
@@ -57,11 +63,11 @@ Mod Storage Folder
 
 Main launcher:
 
-- `dist/ModFolderCopier.exe`
+- `beta测试/dist/ModFolderCopier.exe`
 
 WinUI app:
 
-- `dist/WinUI3/ModFolderCopier.WinUI.exe`
+- `beta测试/dist/WinUI3/ModFolderCopier.WinUI.exe`
 
 In most cases, just run `ModFolderCopier.exe`.
 
@@ -74,7 +80,7 @@ In most cases, just run `ModFolderCopier.exe`.
 5. Click `Refresh`
 6. Choose a first-level category
 7. Choose a second-level mod
-8. Double-click the mod or click the copy button
+8. Double-click the mod, use the copy button, or install an online mod into the current repository
 
 Behavior:
 
@@ -134,13 +140,14 @@ This includes:
 
 Source entry points:
 
-- `WinUI3/`
-- `WinUILauncher.cs`
-- `build_winui.bat`
+- `beta测试/WinUI3/`
+- `beta测试/WinUILauncher.cs`
+- `beta测试/build_winui.bat`
 
 Build command:
 
 ```powershell
+cd beta测试
 cmd /c build_winui.bat
 ```
 
