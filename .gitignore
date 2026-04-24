@@ -6,3 +6,4 @@ WinUI3/obj/
 *.suo
 config.ini
 startup.log
+release/
